@@ -177,7 +177,7 @@ Vraag: "die voeding enzo moogt ge eigenlijk weg halen en slaap ook want da ga ik
 - [x] 2. Snel loggen = alleen gewicht; Vandaag zonder daglog (weegmoment in de bulkkaart)
 - [x] 3. Coach, Progressie-raster (Training / Wegen, weekreeks), Meer, export
   Verificatie: tsc, tests, screenshots leeg/start/vol op gsm en pc, geen horizontale scroll, smoke-tests
-- [ ] 4. Deploy + live check
+- [x] 4. Deploy + live check (17d85f8, Actions groen, live: Vandaag/Coach met eigen data, geen consolefouten)
 
 ## Review
 - Gewijzigd: DailyLog en Targets hebben geen kcal/eiwit/slaap meer. Snel loggen = één gewichtsveld ("Gewicht loggen", ook in de navigatie). Vandaag: daglogkaart weg; de bulkkaart heeft onderaan "Vandaag nog niet gewogen · Gewicht loggen" (of "Vandaag 71,4 kg · Aanpassen"). Coach: eetadvies uit de gewichtstrend ("Eet wat meer / Eten zit goed / Eet iets minder", ± 150 kcal per dag, zonder knop), startadvies vraagt alleen wegingen en trainingen, weekcijfers = trainingen, werksets, wegingen, gewicht. AI legt nu ook het eetadvies uit (alle kaarten behalve 'te weinig data'); PROMPT_VERSION v4 maakt de check-in van deze week opnieuw. Raster: Training (werksets) / Wegen, reeks = weken op rij met je aantal gymdagen. Meer: doelen = start, doel, tempo; CSV = datum + gewicht. Tokens kcal/slaap weg, protein → error.
