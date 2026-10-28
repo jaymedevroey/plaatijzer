@@ -138,4 +138,5 @@ Principe: hiërarchie in plaats van schrappen. Eén dominant blok per scherm, de
   Verificatie: grep op persoonlijke waarden leeg; 28 tests groen; live app toont nog steeds het eigen schema (uit het account)
 - [x] Sync-bug opgelost: tijdstempels werden als tekst vergeleken ("…+00:00" vs "….000Z"), waardoor een offline gemaakte seed bij de eerste sync echte data kon overschrijven. Nu vergelijking op tijdstip, met tests.
 - [x] Git-geschiedenis vervangen door één schone commit (author = GitHub noreply-adres)
-
+- Live gecontroleerd (pc, Chrome): Vandaag toont het eigen schema, de doelen en het weekschema uit het account; geen consolefouten. Coach-functie: 200 met AI-uitleg (claude-haiku-5-5) via de owner-tabel. Advisors: alleen de bewuste INFO-meldingen (tabellen zonder policies) en leaked password protection (Pro).
+- Open: oude GitHub Actions-runs verwijzen nog naar de oude commits; verwijderen kan alleen de eigenaar zelf. Weekschema heeft nog geen bewerkscherm.
