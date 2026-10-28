@@ -15,7 +15,8 @@ const METRICS: { key: Metric; label: string; color: string }[] = [
   { key: 'slaap', label: 'Slaap', color: 'var(--color-sleep)' },
 ]
 const MIX = [0, 28, 48, 72, 100]
-const fill = (color: string, level: Level) => (level === 0 ? 'var(--color-s2)' : `color-mix(in srgb, ${color} ${MIX[level]}%, var(--color-s2))`)
+// Empty days one step lighter than the card, so the grid stays visible before there is any data.
+const fill = (color: string, level: Level) => (level === 0 ? 'var(--color-s3)' : `color-mix(in srgb, ${color} ${MIX[level]}%, var(--color-s3))`)
 
 const GAP = 3
 const LABEL = 26
