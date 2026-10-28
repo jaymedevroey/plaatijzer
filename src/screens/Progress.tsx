@@ -130,7 +130,6 @@ export function Progress() {
           today={t}
           logs={sample?.logs ?? logs}
           workouts={sample?.workouts ?? gridWorkouts}
-          targets={tg}
           gymDays={settings.schedule.gymDays}
           preview={!!sample}
         />

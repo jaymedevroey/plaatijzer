@@ -32,7 +32,7 @@ export function Login() {
   return (
     <div className="min-h-[100dvh] lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div aria-hidden="true" className="hidden flex-col justify-between bg-s1 p-12 lg:flex">
-        <span className="text-[14px] text-ink-3">Workout- en daglog voor de homegym</span>
+        <span className="text-[14px] text-ink-3">Workout- en gewichtslog voor de homegym</span>
         <span translate="no" className="font-cond text-[clamp(96px,11vw,176px)] font-bold uppercase leading-[0.8]">
           Plaat<br />ijzer<span className="text-accent">.</span>
         </span>
@@ -55,7 +55,7 @@ export function Login() {
             <input type="password" name="password" autoComplete="current-password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)}
               className="h-14 w-full rounded-[14px] bg-s1 px-4 text-[16px] outline-none placeholder:text-ink-3 focus:bg-s2" />
           </label>
-          {msg && <p role="alert" className="px-1 text-[14px] text-protein">{msg}</p>}
+          {msg && <p role="alert" className="px-1 text-[14px] text-error">{msg}</p>}
           <PrimaryButton type="submit" disabled={busy} className="mt-2">
             <span>{busy ? 'Even geduld…' : 'Inloggen'}</span>
             <IconRight />

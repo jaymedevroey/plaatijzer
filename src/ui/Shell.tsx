@@ -56,7 +56,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </NavLink>
             ))}
             <button onClick={() => open()} className="press mt-4 flex items-center gap-3 rounded-[14px] border border-line-2 px-3 py-3 text-[15px] font-semibold hover:bg-s1">
-              <IconPlus size={19} /> Loggen
+              <IconPlus size={19} /> Gewicht loggen
             </button>
             <span aria-live="polite" className="mt-auto px-3 text-[12px] text-ink-3">{syncLabel(sync)}</span>
           </nav>
@@ -70,7 +70,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <nav aria-label="Hoofdnavigatie" className="fixed inset-x-4 bottom-[max(env(safe-area-inset-bottom),12px)] z-30 grid h-16 grid-cols-5 items-center rounded-3xl border border-white/[0.06] bg-[rgba(22,22,25,0.94)] backdrop-blur-xl lg:hidden">
             {TABS.slice(0, 2).map((t) => <Tab key={t.to} {...t} />)}
             <button
-              aria-label="Snel loggen"
+              aria-label="Gewicht loggen"
               onClick={() => open()}
               className="press mx-auto flex h-12 w-12 items-center justify-center rounded-[14px] bg-s3 text-ink ring-1 ring-line-2"
             >

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CardHead, Meter, Page, PrimaryButton, QuietButton, Row, SecondaryButton, Sheet } from '../ui/kit'
-import { IconCheck, IconChevron, IconPlus, IconRight, IconUp, IconVolleyball } from '../ui/icons'
+import { CardHead, Page, PrimaryButton, QuietButton, Row, SecondaryButton, Sheet } from '../ui/kit'
+import { IconCheck, IconChevron, IconRight, IconUp, IconVolleyball } from '../ui/icons'
 import { WeightChart } from '../ui/charts'
 import { useQuickLog } from '../ui/Shell'
 import { nextDay, useActiveWorkout, useAllSets, useDays, useExercises, useFinishedWorkouts, useLogs, useSettings } from '../data/hooks'
@@ -10,9 +10,9 @@ import { nextTarget } from '../engine/progression'
 import { weeklyRate, weightTrend, type Rate, type TrendPoint } from '../engine/trend'
 import { weekPlan, type PlanDay } from '../engine/week'
 import { addDays, dayShort, daysBetween, isoDate, longDate, parseDate, shortDate, today } from '../lib/dates'
-import { int, kg, sleep as fmtSleep } from '../lib/format'
+import { int, kg } from '../lib/format'
 import { unlockAudio } from '../lib/sound'
-import type { DailyLog, DayItem, Exercise, Inventory, ProgramDay, Targets, Workout, WorkoutSet } from '../lib/types'
+import type { DayItem, Exercise, Inventory, ProgramDay, Targets, Workout, WorkoutSet } from '../lib/types'
 
 export function Today() {
   const navigate = useNavigate()
@@ -94,15 +94,15 @@ export function Today() {
               }))}
               total={finished.length}
               today={t}
-              className="order-6 xl:order-none"
+              className="order-5 xl:order-none"
             />
           )}
         </div>
 
         <div className="contents xl:col-span-5 xl:flex xl:flex-col xl:gap-5">
-          <DayLogCard log={logs.find((l) => l.date === t)} trend={trend} targets={settings.targets} onOpen={() => openLog()} className="order-3 xl:order-none" />
+          <BulkCard targets={settings.targets} trend={trend} rate={rate} today={t} weighedToday={logs.find((l) => l.date === t)?.weight ?? null}
+            onLog={() => openLog()} className="order-3 xl:order-none" />
           <WeekCard plan={plan} perWeek={schedule.gymDays.length} className="order-4 xl:order-none" />
-          <BulkCard targets={settings.targets} trend={trend} rate={rate} today={t} className="order-5 xl:order-none" />
         </div>
       </div>
 
@@ -312,53 +312,11 @@ function estimateMin(day: ProgramDay): number {
   return Math.round(sec / 60 / 5) * 5
 }
 
-// ---------- daily log ----------
-
-function DayLogCard({ log, trend, targets: tg, onOpen, className = '' }: { log: DailyLog | undefined; trend: TrendPoint[]; targets: Targets; onOpen: () => void; className?: string }) {
-  const now = trend.at(-1)?.trend
-  const toGoal = ((now ?? tg.startWeight) - tg.startWeight) / Math.max(0.1, tg.goalWeight - tg.startWeight)
-  return (
-    <button
-      onClick={onOpen}
-      aria-label="Daglog van vandaag invullen"
-      className={`press flex w-full flex-col gap-4 rounded-3xl bg-s1 p-4 text-left hover:bg-s2 lg:p-5 ${className}`}
-    >
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-[16px] font-semibold">Daglog</span>
-        <span className="flex items-center gap-1 text-[14px] font-semibold text-ink-2"><IconPlus size={14} />Loggen</span>
-      </span>
-      <span className="grid grid-cols-4 gap-3">
-        <Metric label="Kcal" value={log?.kcal != null ? int(log.kcal) : null} sub={`van ${int(tg.kcal)}`}
-          meter={<Meter value={log?.kcal ?? 0} max={tg.kcal} color="var(--color-kcal)" />} />
-        <Metric label="Eiwit" value={log?.protein != null ? String(log.protein) : null} sub={`van ${tg.protein} g`}
-          meter={<Meter value={log?.protein ?? 0} max={tg.protein} color="var(--color-protein)" />} />
-        <Metric label="Slaap" value={log?.sleep_min != null ? fmtSleep(log.sleep_min) : null} sub={`van ${fmtSleep(tg.sleepMin)}`}
-          meter={<Meter value={log?.sleep_min ?? 0} max={tg.sleepMin} color="var(--color-sleep)" />} />
-        <Metric label="Gewicht" value={log?.weight != null ? kg(log.weight, 1) : null}
-          sub={now != null ? `trend ${kg(now, 1)}` : `start ${kg(tg.startWeight, 1)}`}
-          meter={<Meter value={toGoal} max={1} color="var(--color-ink-2)" />} />
-      </span>
-    </button>
-  )
-}
-
-function Metric({ label, value, sub, meter }: { label: string; value: string | null; sub: string; meter: ReactNode }) {
-  return (
-    <span className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">{label}</span>
-      <span className={`num truncate font-cond text-[26px] font-bold leading-none ${value == null ? 'text-line-2' : ''}`}>
-        {value ?? '–'}
-        {value == null && <span className="sr-only">nog niet gelogd</span>}
-      </span>
-      <span className="num truncate text-[12px] text-ink-3">{sub}</span>
-      <span className="mt-1">{meter}</span>
-    </span>
-  )
-}
-
 // ---------- bulk ----------
 
-function BulkCard({ targets: tg, trend, rate, today: t, className = '' }: { targets: Targets; trend: TrendPoint[]; rate: Rate | null; today: string; className?: string }) {
+function BulkCard({ targets: tg, trend, rate, today: t, weighedToday, onLog, className = '' }: {
+  targets: Targets; trend: TrendPoint[]; rate: Rate | null; today: string; weighedToday: number | null; onLog: () => void; className?: string
+}) {
   const now = trend.at(-1)?.trend ?? null
   const cur = now ?? tg.startWeight
   const span = tg.goalWeight - tg.startWeight
@@ -389,6 +347,10 @@ function BulkCard({ targets: tg, trend, rate, today: t, className = '' }: { targ
           : 'Doelgewicht gehaald'}
         {now == null && <span className="block text-ink-3">Weeg je 's ochtends; na twee wegingen zie je je trend.</span>}
       </p>
+      <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+        <span className="num text-[14px] text-ink-2">{weighedToday != null ? `Vandaag ${kg(weighedToday, 1)} kg` : 'Vandaag nog niet gewogen'}</span>
+        <SecondaryButton onClick={onLog} className="shrink-0">{weighedToday != null ? 'Aanpassen' : 'Gewicht loggen'}</SecondaryButton>
+      </div>
     </section>
   )
 }

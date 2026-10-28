@@ -20,9 +20,3 @@ export function duration(sec: number): string {
   const m = Math.floor(s / 60)
   return `${m}:${String(s % 60).padStart(2, '0')}`
 }
-
-export function sleep(min: number | null | undefined): string {
-  if (min == null) return '–'
-  const h = Math.floor(min / 60)
-  return `${h}u${String(min % 60).padStart(2, '0')}`
-}

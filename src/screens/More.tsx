@@ -5,7 +5,7 @@ import { updateSettings } from '../data/repo'
 import { supabase } from '../data/supabase'
 import { db } from '../data/db'
 import { logout, onSyncStatus } from '../data/sync'
-import { kg, int, sleep as fmtSleep } from '../lib/format'
+import { kg } from '../lib/format'
 import { parseDate } from '../lib/dates'
 import type { Inventory, Targets } from '../lib/types'
 
@@ -49,9 +49,6 @@ export function More() {
 
         <div className="flex flex-col gap-6">
           <Group title="Doelen">
-            <Row label="Kcal per dag" value={int(t.kcal)} onClick={doelen} />
-            <Row label="Eiwit per dag" value={`${t.protein} g`} onClick={doelen} />
-            <Row label="Slaap" value={fmtSleep(t.sleepMin)} onClick={doelen} />
             <Row label="Startgewicht" value={`${kg(t.startWeight, 1)} kg`} onClick={doelen} />
             <Row label="Doelgewicht" value={`${kg(t.goalWeight, 1)} kg`} onClick={doelen} />
             <Row label="Tempo" value={`+${kg(t.weeklyGainMin)}–${kg(t.weeklyGainMax)} kg per week`} onClick={doelen} />
@@ -89,9 +86,6 @@ export function More() {
 
       <Sheet open={sheet === 'doelen'} onClose={() => setSheet(null)} label="Doelen" title="Doelen">
         <div className="-mx-4 flex flex-col divide-y divide-line pb-4">
-          <EditRow label="Kcal per dag" value={t.kcal} fmt={int} onCommit={(n) => tgt({ kcal: Math.round(n) })} />
-          <EditRow label="Eiwit" unit="g" value={t.protein} fmt={String} onCommit={(n) => tgt({ protein: Math.round(n) })} />
-          <EditRow label="Slaap" value={t.sleepMin} fmt={fmtSleep} editFmt={(m) => kg(m / 60, 2)} parse={parseHours} onCommit={(n) => tgt({ sleepMin: n })} />
           <EditRow label="Doelgewicht" unit="kg" value={t.goalWeight} fmt={(n) => kg(n, 1)} onCommit={(n) => tgt({ goalWeight: n })} />
           <div className="flex min-h-14 items-center justify-between gap-3 px-4">
             <span className="text-[16px]">Tempo per week</span>
@@ -135,38 +129,27 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-function parseHours(s: string): number | null {
-  const t = s.trim().replace('u', ':')
-  if (t.includes(':')) {
-    const [h, m] = t.split(':').map((x) => Number(x || 0))
-    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
-  }
-  const n = Number(t.replace(',', '.'))
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 60) : null
-}
-
 const parseNum = (s: string) => {
   const n = Number(s.trim().replace(',', '.'))
   return s.trim() && Number.isFinite(n) ? n : null
 }
 
-function EditRow({ label, unit, value, fmt, editFmt, parse = parseNum, onCommit }: {
-  label: string; unit?: string; value: number; fmt: (n: number) => string; editFmt?: (n: number) => string
-  parse?: (s: string) => number | null; onCommit: (n: number) => void
+function EditRow({ label, unit, value, fmt, onCommit }: {
+  label: string; unit?: string; value: number; fmt: (n: number) => string; onCommit: (n: number) => void
 }) {
   return (
     <label className="flex min-h-14 items-center justify-between gap-3 px-4">
       <span className="text-[16px]">{label}</span>
       <span className="num flex items-baseline gap-1 text-[16px] text-ink-2">
-        <InlineNum value={value} fmt={fmt} editFmt={editFmt} parse={parse} onCommit={onCommit} label={label} />
+        <InlineNum value={value} fmt={fmt} onCommit={onCommit} label={label} />
         {unit}
       </span>
     </label>
   )
 }
 
-function InlineNum({ value, fmt, editFmt, parse = parseNum, onCommit, label }: {
-  value: number; fmt: (n: number) => string; editFmt?: (n: number) => string; parse?: (s: string) => number | null; onCommit: (n: number) => void; label: string
+function InlineNum({ value, fmt, onCommit, label }: {
+  value: number; fmt: (n: number) => string; onCommit: (n: number) => void; label: string
 }) {
   const [text, setText] = useState<string | null>(null)
   const shown = text ?? fmt(value)
@@ -176,11 +159,11 @@ function InlineNum({ value, fmt, editFmt, parse = parseNum, onCommit, label }: {
       inputMode="decimal"
       autoComplete="off"
       value={shown}
-      onFocus={(e) => { const el = e.target; setText((editFmt ?? fmt)(value)); requestAnimationFrame(() => el.select()) }}
+      onFocus={(e) => { const el = e.target; setText(fmt(value)); requestAnimationFrame(() => el.select()) }}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
         if (text != null) {
-          const n = parse(text)
+          const n = parseNum(text)
           if (n != null) onCommit(n)
         }
         setText(null)
@@ -232,9 +215,9 @@ async function exportCsv() {
     if (!wo || wo.deleted) continue
     rows.push([wo.started_at.slice(0, 10), e.get(s.exercise_id)?.name ?? '', s.kind, String(s.weight ?? ''), String(s.reps ?? ''), String(s.rir ?? '')])
   }
-  rows.push([], ['datum', 'gewicht', 'kcal', 'eiwit', 'slaap_min'])
-  for (const l of logs.filter((x) => !x.deleted).sort((a, b) => a.date.localeCompare(b.date))) {
-    rows.push([l.date, String(l.weight ?? ''), String(l.kcal ?? ''), String(l.protein ?? ''), String(l.sleep_min ?? '')])
+  rows.push([], ['datum', 'gewicht'])
+  for (const l of logs.filter((x) => !x.deleted && x.weight != null).sort((a, b) => a.date.localeCompare(b.date))) {
+    rows.push([l.date, String(l.weight)])
   }
   // Neutralise spreadsheet formulas in text cells, then quote where needed.
   const cell = (c: string) => {

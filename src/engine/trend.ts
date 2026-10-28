@@ -52,5 +52,6 @@ export function weeklyRate(points: TrendPoint[], window = 14): Rate | null {
   const first = points[startIdx]
   const days = daysBetween(first.date, last.date)
   if (days < 7) return null
-  return { perWeek: ((last.trend - first.trend) / days) * 7, days, provisional: days < window }
+  // Rounded to 10 g a week, the precision every screen shows it at, so what is judged is what you see.
+  return { perWeek: Math.round(((last.trend - first.trend) / days) * 7 * 100) / 100, days, provisional: days < window }
 }

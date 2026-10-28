@@ -12,7 +12,7 @@ function rng(seed: number) {
 }
 
 /**
- * Made-up year for the "?voorbeeld" view of the day grid: logging habits that get better over the year,
+ * Made-up year for the "?voorbeeld" view of the day grid: weigh-ins that get more regular over the year,
  * two holiday weeks, trainings on most gym days. Never stored anywhere.
  */
 export function sampleYear(today: string, targets: Targets, gymDays: number[], dayNames: string[]) {
@@ -26,15 +26,11 @@ export function sampleYear(today: string, targets: Targets, gymDays: number[], d
     const i = daysBetween(start, d)
     const week = Math.floor(i / 7)
     if (week === 14 || week === 33) continue // holidays
-    const habit = 0.45 + 0.5 * (i / 370)
-    if (rand() < habit) {
-      const around = (target: number, low: number, high: number) => target * (low + rand() * (high - low))
+    // weighing gets more regular over the year
+    if (rand() < 0.3 + 0.5 * (i / 370)) {
       logs.push({
         id: `voorbeeld-${d}`, date: d, updated_at: '', deleted: false,
-        kcal: rand() < 0.9 ? Math.round(around(targets.kcal, 0.75, 1.1) / 10) * 10 : null,
-        protein: rand() < 0.85 ? Math.round(around(targets.protein, 0.7, 1.15)) : null,
-        sleep_min: rand() < 0.8 ? Math.round(around(targets.sleepMin, 0.78, 1.06) / 5) * 5 : null,
-        weight: rand() < 0.55 ? Math.round((targets.startWeight - 5 + 7 * (i / 370) + (rand() - 0.5) * 0.8) * 10) / 10 : null,
+        weight: Math.round((targets.startWeight - 5 + 7 * (i / 370) + (rand() - 0.5) * 0.8) * 10) / 10,
       })
     }
     if (gymDays.includes(parseDate(d).getDay()) && rand() < 0.62 + 0.33 * (i / 370)) {

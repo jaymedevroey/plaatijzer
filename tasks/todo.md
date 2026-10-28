@@ -163,3 +163,24 @@ Vraag: "op pc progress zien aan de hand van vakjes elke dag die gekleurd worden 
 - Nieuw: kaart "Consistentie" bovenaan Progressie. Eén vakje per dag (ma–zo per kolom), op pc het hele jaar, op gsm zoveel weken als past. Kleur = gehaalde dagdoelen, of per meting (Training = werksets, Kcal/Eiwit/Slaap = % van je doel). Reeks en langste reeks, legende minder–meer, hover/tik toont de dag met "Log deze dag", pijltjestoetsen bewegen door de dagen.
 - Getest: 5 nieuwe unit tests (lege dag, gymdag vs rustdag, 95%-grens, reeks die gisteren eindigt) → 33 groen; screenshots leeg/vol op gsm en pc; metingwissel en toetsenbord met Playwright; geen horizontale scroll op 5 schermen × 3 toestanden × 4 breedtes; smoke-tests groen.
 
+
+# Ronde 6 — geen voeding en slaap meer (28 okt 2026)
+Vraag: "die voeding enzo moogt ge eigenlijk weg halen en slaap ook want da ga ik toch niet kunnen tracken".
+
+## Aannames
+- Weg: kcal, eiwit, slaap (loggen, doelen, coachregels, raster, export). Gewicht blijft: dat is de bulk.
+- Coach geeft eetadvies zonder logging: op basis van de gewichtstrend "eet ± 150 kcal per dag meer/minder" (info, geen knop).
+- Databasekolommen blijven staan (geen migratie nodig); de app schrijft en toont ze niet meer.
+
+## Stappen
+- [x] 1. Types, doelen, coachregels (+ tests) zonder voeding/slaap
+- [x] 2. Snel loggen = alleen gewicht; Vandaag zonder daglog (weegmoment in de bulkkaart)
+- [x] 3. Coach, Progressie-raster (Training / Wegen, weekreeks), Meer, export
+  Verificatie: tsc, tests, screenshots leeg/start/vol op gsm en pc, geen horizontale scroll, smoke-tests
+- [ ] 4. Deploy + live check
+
+## Review
+- Gewijzigd: DailyLog en Targets hebben geen kcal/eiwit/slaap meer. Snel loggen = één gewichtsveld ("Gewicht loggen", ook in de navigatie). Vandaag: daglogkaart weg; de bulkkaart heeft onderaan "Vandaag nog niet gewogen · Gewicht loggen" (of "Vandaag 71,4 kg · Aanpassen"). Coach: eetadvies uit de gewichtstrend ("Eet wat meer / Eten zit goed / Eet iets minder", ± 150 kcal per dag, zonder knop), startadvies vraagt alleen wegingen en trainingen, weekcijfers = trainingen, werksets, wegingen, gewicht. AI legt nu ook het eetadvies uit (alle kaarten behalve 'te weinig data'); PROMPT_VERSION v4 maakt de check-in van deze week opnieuw. Raster: Training (werksets) / Wegen, reeks = weken op rij met je aantal gymdagen. Meer: doelen = start, doel, tempo; CSV = datum + gewicht. Tokens kcal/slaap weg, protein → error.
+- Gevonden en opgelost: het tempo werd op 2 decimalen getoond maar onafgerond beoordeeld (0,247 → "0,25 kg per week, onder doelzone"). weeklyRate rondt nu af op wat elk scherm toont; test erbij.
+- Getest: tsc, 35 unit tests, build, 10 smoke-checks (o.a. gewicht loggen en bewaren, nergens nog Kcal/Eiwit/Slaap/Daglog), screenshots leeg/start/vol × gsm/pc, geen horizontale scroll op SE/gsm/tablet/pc.
+- Aandachtspunten: de oude kolommen kcal/protein/sleep_min blijven in de database staan (niet gewist). Oude check-ins kunnen nog kcal-kaarten bevatten; ze worden niet meer getoond en "Accepteren" erop doet niets.

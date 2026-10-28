@@ -2,17 +2,14 @@ import { useMemo, useState, type KeyboardEvent } from 'react'
 import { CardHead, QuietButton } from '../ui/kit'
 import { useWidth } from '../ui/charts'
 import { useQuickLog } from '../ui/Shell'
-import { buildDays, streaks, type DayStat, type Level, type Metric } from '../engine/consistency'
+import { buildDays, weekStreaks, type DayStat, type Level, type Metric } from '../engine/consistency'
 import { addDays, dayShort, parseDate, weekStart } from '../lib/dates'
-import { int, kg, sleep as fmtSleep } from '../lib/format'
-import type { DailyLog, Targets } from '../lib/types'
+import { kg } from '../lib/format'
+import type { DailyLog } from '../lib/types'
 
 const METRICS: { key: Metric; label: string; color: string }[] = [
-  { key: 'alles', label: 'Alles', color: 'var(--color-accent)' },
   { key: 'training', label: 'Training', color: 'var(--color-accent)' },
-  { key: 'kcal', label: 'Kcal', color: 'var(--color-kcal)' },
-  { key: 'eiwit', label: 'Eiwit', color: 'var(--color-protein)' },
-  { key: 'slaap', label: 'Slaap', color: 'var(--color-sleep)' },
+  { key: 'wegen', label: 'Wegen', color: 'var(--color-ink)' },
 ]
 const MIX = [0, 28, 48, 72, 100]
 // Empty days one step lighter than the card, so the grid stays visible before there is any data.
@@ -28,19 +25,18 @@ const ROW_LABEL = ['ma', '', 'wo', '', 'vr', '', '']
 
 const dayLabel = (d: string) => `${dayShort(d)} ${parseDate(d).getDate()} ${MONTHS[parseDate(d).getMonth()]}`
 
-/** GitHub-style grid: one square per day, coloured by how many day goals you reached. */
-export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, preview = false, className = '' }: {
+/** GitHub-style grid: one square per day, coloured by training (work sets) or by weigh-ins. */
+export function ConsistencyCard({ today: t, logs, workouts, gymDays, preview = false, className = '' }: {
   today: string
   /** Showing made-up example data: no logging from here, and a way back to your own data. */
   preview?: boolean
   logs: DailyLog[]
   workouts: { id: string; date: string; name: string; sets: number }[]
-  targets: Targets
   gymDays: number[]
   className?: string
 }) {
   const [ref, width] = useWidth()
-  const [metric, setMetric] = useState<Metric>('alles')
+  const [metric, setMetric] = useState<Metric>('training')
   const [selected, setSelected] = useState(t)
   const [hover, setHover] = useState<string | null>(null)
   const openLog = useQuickLog()
@@ -56,10 +52,11 @@ export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, pr
   cell = Math.min(cell, MAX_CELL)
 
   const first = addDays(weekStart(t), -7 * (weeks - 1))
-  const days = useMemo(() => buildDays(first, t, { logs, workouts, targets, gymDays }), [first, t, logs, workouts, targets, gymDays])
+  const days = useMemo(() => buildDays(first, t, { logs, workouts, gymDays }), [first, t, logs, workouts, gymDays])
   const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days])
-  const { current, longest } = useMemo(() => streaks(days, t), [days, t])
+  const { current, longest } = useMemo(() => weekStreaks(days, t, gymDays.length), [days, t, gymDays.length])
   const trainings = days.reduce((n, d) => n + d.workouts.length, 0)
+  const weighIns = days.filter((d) => d.weight != null).length
   const color = METRICS.find((m) => m.key === metric)!.color
   const shown = byDate.get(hover ?? selected) ?? byDate.get(t)!
 
@@ -91,7 +88,7 @@ export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, pr
         <div className="flex flex-col gap-1">
           <CardHead title={<span id="consistency">Consistentie</span>} />
           <p className="num text-[13px] text-ink-3">
-            {trainings} {trainings === 1 ? 'training' : 'trainingen'} · reeks {current} {current === 1 ? 'dag' : 'dagen'} · langste {longest}
+            {trainings} {trainings === 1 ? 'training' : 'trainingen'} · {current} {current === 1 ? 'week' : 'weken'} op rij {gymDays.length}× getraind · langste {longest} · {weighIns} {weighIns === 1 ? 'weging' : 'wegingen'}
           </p>
           {preview && (
             <p className="text-[13px] text-ink-2">
@@ -137,7 +134,7 @@ export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, pr
                   key={date}
                   data-date={date}
                   tabIndex={isSel ? 0 : -1}
-                  aria-label={describe(day, targets)}
+                  aria-label={`${dayLabel(day.date)}: ${summary(day)}`}
                   aria-pressed={isSel}
                   onClick={() => setSelected(date)}
                   onFocus={() => setSelected(date)}
@@ -159,37 +156,35 @@ export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, pr
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1" aria-live="polite">
           <span className="num text-[14px] font-semibold">{dayLabel(shown.date)}</span>
-          <span className="num text-[14px] text-ink-2">{summary(shown, gymDays)}</span>
-          {!preview && <QuietButton onClick={() => openLog(shown.date)} className="-ml-2 text-[14px]">Log deze dag</QuietButton>}
+          <span className="num text-[14px] text-ink-2">{summary(shown)}</span>
+          {!preview && <QuietButton onClick={() => openLog(shown.date)} className="-ml-2 text-[14px]">Gewicht loggen</QuietButton>}
         </div>
         <div className="flex items-center gap-1.5 text-[12px] text-ink-3" aria-hidden="true">
-          minder
-          {[0, 1, 2, 3, 4].map((l) => (
-            <span key={l} className="h-3 w-3 rounded-[3px]" style={{ background: fill(color, l as Level) }} />
-          ))}
-          meer
+          {metric === 'wegen' ? (
+            <>
+              <span className="h-3 w-3 rounded-[3px]" style={{ background: fill(color, 0) }} />
+              niet gewogen
+              <span className="ml-2 h-3 w-3 rounded-[3px]" style={{ background: fill(color, 4) }} />
+              gewogen
+            </>
+          ) : (
+            <>
+              minder sets
+              {[0, 1, 2, 3, 4].map((l) => (
+                <span key={l} className="h-3 w-3 rounded-[3px]" style={{ background: fill(color, l as Level) }} />
+              ))}
+              meer
+            </>
+          )}
         </div>
       </div>
     </section>
   )
 }
 
-/** "Upper A, 17 sets · 3.150 kcal · 142 g eiwit · 7u40 slaap · 4/4 doelen" */
-function summary(d: DayStat, gymDays: number[]): string {
-  const any = d.workouts.length > 0 || d.kcal != null || d.protein != null || d.sleep != null || d.weight != null
-  if (!any) return gymDays.includes(parseDate(d.date).getDay()) ? 'gymdag · nog niets gelogd' : 'nog niets gelogd'
-  const parts = [
-    ...d.workouts.map((w) => `${w.name}, ${w.sets} sets`),
-    d.kcal != null ? `${int(d.kcal)} kcal` : null,
-    d.protein != null ? `${d.protein} g eiwit` : null,
-    d.sleep != null ? `${fmtSleep(d.sleep)} slaap` : null,
-    d.weight != null ? `${kg(d.weight, 1)} kg` : null,
-    `${d.hits}/${d.goals} doelen`,
-  ]
-  return parts.filter(Boolean).join(' · ')
-}
-
-function describe(d: DayStat, t: Targets): string {
-  const goals = `${d.hits} van ${d.goals} dagdoelen (kcal ${int(t.kcal)}, eiwit ${t.protein} g, slaap ${fmtSleep(t.sleepMin)})`
-  return `${dayLabel(d.date)}: ${d.workouts.length ? d.workouts.map((w) => w.name).join(' en ') + ', ' : ''}${goals}`
+/** "Upper A, 17 sets · 71,4 kg", or what kind of day it was. */
+function summary(d: DayStat): string {
+  const parts = [...d.workouts.map((w) => `${w.name}, ${w.sets} sets`), d.weight != null ? `${kg(d.weight, 1)} kg` : null].filter(Boolean)
+  if (parts.length) return parts.join(' · ')
+  return d.gymDay ? 'gymdag, geen training' : 'geen gymdag'
 }

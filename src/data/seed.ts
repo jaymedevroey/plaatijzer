@@ -73,9 +73,6 @@ export const DEFAULT_SETTINGS: SettingsData = {
     cableMax: 70,
   },
   targets: {
-    kcal: 2600,
-    protein: 130,
-    sleepMin: 480,
     weeklyGainMin: 0.25,
     weeklyGainMax: 0.5,
     goalWeight: 75,

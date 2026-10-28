@@ -7,13 +7,13 @@ import { db } from '../data/db'
 import { coachCards, NEEDS } from '../engine/coach'
 import { weeklyRate, weightTrend } from '../engine/trend'
 import { dayShort, daysBetween, isoDate, longDate, shortDate, today, weekStart } from '../lib/dates'
-import { int, kg, signed, sleep as fmtSleep } from '../lib/format'
-import { nowIso, updateDayItem, updateSettings } from '../data/repo'
+import { int, kg, signed } from '../lib/format'
+import { nowIso, updateDayItem } from '../data/repo'
 import { scheduleSync } from '../data/sync'
 import { supabase } from '../data/supabase'
 import type { CoachCard, CoachReport, DailyLog, Targets, Workout, WorkoutSet } from '../lib/types'
 
-const PROMPT_VERSION = 'v3'
+const PROMPT_VERSION = 'v4'
 const reportId = (ws: string) => `00000000-0000-4000-a000-0000${ws.replaceAll('-', '')}`
 
 async function generate(useAi: boolean): Promise<void> {
@@ -30,12 +30,12 @@ async function generate(useAi: boolean): Promise<void> {
     exercises: exercises.filter((e) => !e.deleted), days: days.filter((d) => !d.deleted),
   })
   let model: string | null = null
-  const actionable = cards.filter((c) => c.action)
-  if (useAi && navigator.onLine && actionable.length) {
+  const explain = cards.filter((c) => c.kind !== 'data')
+  if (useAi && navigator.onLine && explain.length) {
     try {
-      // Only computed facts of the action cards go out. No raw logs.
+      // Only the computed facts on the cards go out. No raw logs.
       const { data, error } = await supabase.functions.invoke('coach', {
-        body: { cards: actionable.map(({ id, title, why, evidence, rule, confidence }) => ({ id, title, why, evidence, rule, confidence })) },
+        body: { cards: explain.map(({ id, title, why, evidence, rule, confidence }) => ({ id, title, why, evidence, rule, confidence })) },
       })
       if (!error && data?.explanations) {
         const map = new Map<string, string>((data.explanations as { id: string; why: string }[]).map((e) => [e.id, e.why]))
@@ -63,14 +63,10 @@ async function setStatus(report: CoachReport, cardId: string, status: CoachCard[
 
 async function apply(card: CoachCard, delta?: number) {
   const a = card.action
-  if (!a) return
-  if (a.type === 'kcal') {
-    await updateSettings((d) => ({ ...d, targets: { ...d.targets, kcal: d.targets.kcal + (delta ?? a.delta) } }))
-  } else {
-    const day = await db.program_days.get(a.dayId)
-    const idx = day?.items.findIndex((i) => i.exerciseId === a.exerciseId) ?? -1
-    if (day && idx >= 0) await updateDayItem(day.id, idx, { sets: day.items[idx].sets + (delta ?? a.delta) })
-  }
+  if (a?.type !== 'addSets') return // older reports can still hold actions that no longer exist
+  const day = await db.program_days.get(a.dayId)
+  const idx = day?.items.findIndex((i) => i.exerciseId === a.exerciseId) ?? -1
+  if (day && idx >= 0) await updateDayItem(day.id, idx, { sets: day.items[idx].sets + (delta ?? a.delta) })
 }
 
 export function Coach() {
@@ -106,9 +102,10 @@ export function Coach() {
   }, [reports, thisWeek])
 
   const cards = latest?.payload.cards ?? []
+  const food = cards.find((c) => c.kind === 'food')
   const actions = cards.filter((c) => c.action && c.status === 'open')
   // The live checklist below replaces the stored "not enough data" card.
-  const info = cards.filter((c) => c.kind !== 'data' && (!c.action || c.status !== 'open'))
+  const info = cards.filter((c) => c.kind !== 'data' && c.kind !== 'food' && (!c.action || c.status !== 'open'))
 
   if (!logs || !finished || !sets) return null
   const needs = coachNeeds(logs, finished, t)
@@ -127,17 +124,24 @@ export function Coach() {
     >
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-12 xl:items-start lg:gap-5">
         <div className="flex flex-col gap-3 xl:col-span-7 lg:gap-5">
-          {missing && <NeedsCard needs={needs} targets={settings.targets} perWeek={settings.schedule.gymDays.length} primary={actions.length === 0} onLog={() => openLog()} />}
+          {missing && <NeedsCard needs={needs} targets={settings.targets} perWeek={settings.schedule.gymDays.length} primary={!food && actions.length === 0} onLog={() => openLog()} />}
 
           {!latest || (busy && !thisWeek) ? (
             <Card><Empty>Check-in wordt gemaakt…</Empty></Card>
           ) : (
             <>
+              {food && (
+                <Card as="article" className="flex flex-col gap-1">
+                  <h2 className="text-[18px] font-semibold">{food.title}</h2>
+                  <p className="text-[15px] text-ink-2">{food.why}</p>
+                </Card>
+              )}
+
               {actions.map((c) => <ActionCard key={c.id} card={c} report={latest} />)}
 
               {info.length > 0 && (
                 <Card className="flex flex-col gap-3">
-                  <CardHead title={actions.length ? 'Overige adviezen' : 'Op koers'} />
+                  <CardHead title={food || actions.length ? 'Overige adviezen' : 'Adviezen'} />
                   <ul className="flex flex-col gap-2.5">
                     {info.map((c) => (
                       <li key={c.id} className="flex flex-col gap-0.5">
@@ -152,7 +156,7 @@ export function Coach() {
                 </Card>
               )}
 
-              {!missing && actions.length === 0 && info.length === 0 && <Card><Empty>Niets aan te passen deze week.</Empty></Card>}
+              {!missing && !food && actions.length === 0 && info.length === 0 && <Card><Empty>Niets aan te passen deze week.</Empty></Card>}
             </>
           )}
         </div>
@@ -163,15 +167,14 @@ export function Coach() {
   )
 }
 
-interface Need { label: string; have: number; need: number; period: string }
+interface Need { id: 'wegen' | 'training'; label: string; have: number; need: number; period: string }
 
 /** Live version of the coach's data thresholds, so you see what is missing and how far you are. */
 function coachNeeds(logs: DailyLog[], finished: Workout[], t: string): Need[] {
   const within = (d: string, n: number) => daysBetween(d, t) >= 0 && daysBetween(d, t) < n
   return [
-    { label: 'Wegingen', have: logs.filter((l) => l.weight != null && within(l.date, 14)).length, need: NEEDS.weighIns14, period: 'laatste 14 dagen' },
-    { label: 'Dagen kcal gelogd', have: logs.filter((l) => l.kcal != null && within(l.date, 7)).length, need: NEEDS.food7, period: 'laatste 7 dagen' },
-    { label: 'Trainingen', have: finished.filter((w) => within(isoDate(new Date(w.started_at)), 7)).length, need: NEEDS.workouts7, period: 'laatste 7 dagen' },
+    { id: 'wegen', label: 'Wegingen', have: logs.filter((l) => l.weight != null && within(l.date, 14)).length, need: NEEDS.weighIns14, period: 'laatste 14 dagen' },
+    { id: 'training', label: 'Trainingen', have: finished.filter((w) => within(isoDate(new Date(w.started_at)), 7)).length, need: NEEDS.workouts7, period: 'laatste 7 dagen' },
   ]
 }
 
@@ -182,7 +185,7 @@ function NeedsCard({ needs, targets: tg, perWeek, primary, onLog }: { needs: Nee
       <div className="flex flex-col gap-1.5">
         <CardHead title="Startadvies: volg je plan" />
         <p className="num text-[15px] text-ink-2">
-          {int(tg.kcal)} kcal en {tg.protein} g eiwit per dag, {perWeek} trainingen per week, +{kg(tg.weeklyGainMin)}–{kg(tg.weeklyGainMax)} kg per week.
+          Train {perWeek}× per week en kom {kg(tg.weeklyGainMin)}–{kg(tg.weeklyGainMax)} kg per week bij.
         </p>
         <p className="text-[14px] text-ink-3">De coach stuurt bij zodra dit binnen is:</p>
       </div>
@@ -190,7 +193,7 @@ function NeedsCard({ needs, targets: tg, perWeek, primary, onLog }: { needs: Nee
         {needs.map((n) => {
           const ok = n.have >= n.need
           return (
-            <li key={n.label} className="flex flex-col gap-1.5">
+            <li key={n.id} className="flex flex-col gap-1.5">
               <span className="flex items-baseline justify-between gap-3">
                 <span className="flex items-center gap-2 text-[15px]">
                   {ok && <IconCheck size={14} className="text-ink-2" />}
@@ -204,11 +207,11 @@ function NeedsCard({ needs, targets: tg, perWeek, primary, onLog }: { needs: Nee
           )
         })}
       </ul>
-      {primary ? (
-        <PrimaryButton onClick={onLog}><span>Daglog invullen</span><IconPlus /></PrimaryButton>
+      {needs.some((n) => n.id === 'wegen' && n.have < n.need) && (primary ? (
+        <PrimaryButton onClick={onLog}><span>Gewicht loggen</span><IconPlus /></PrimaryButton>
       ) : (
-        <SecondaryButton onClick={onLog} className="self-start">Daglog invullen</SecondaryButton>
-      )}
+        <SecondaryButton onClick={onLog} className="self-start">Gewicht loggen</SecondaryButton>
+      ))}
     </Card>
   )
 }
@@ -221,22 +224,14 @@ function WeekStats({ logs, finished, sets, targets: tg, perWeek, today: t, class
   const week = logs.filter((l) => l.date >= ws && l.date <= t)
   const ids = new Set(finished.filter((w) => isoDate(new Date(w.started_at)) >= ws).map((w) => w.id))
   const work = sets.filter((s) => ids.has(s.workout_id) && s.done && s.kind === 'work')
-  const avg = (xs: (number | null)[]) => {
-    const v = xs.filter((x): x is number => x != null)
-    return v.length ? { value: v.reduce((a, b) => a + b, 0) / v.length, n: v.length } : null
-  }
-  const kcal = avg(week.map((l) => l.kcal))
-  const protein = avg(week.map((l) => l.protein))
-  const sleep = avg(week.map((l) => l.sleep_min))
+  const weighIns = week.filter((l) => l.weight != null)
+  const last = weighIns.at(-1)
   const trend = weightTrend(logs)
   const rate = weeklyRate(trend)
-  const days = (n?: number) => (n ? ` · ${n} ${n === 1 ? 'dag' : 'dagen'}` : '')
   const rows: { label: string; value: string; sub: string }[] = [
     { label: 'Trainingen', value: `${ids.size}`, sub: `van ${perWeek}` },
     { label: 'Werksets', value: int(work.length), sub: `${int(work.reduce((s, x) => s + (x.weight ?? 0) * (x.reps ?? 0), 0))} kg volume` },
-    { label: 'Kcal per dag', value: kcal ? int(kcal.value) : '–', sub: `doel ${int(tg.kcal)}${days(kcal?.n)}` },
-    { label: 'Eiwit per dag', value: protein ? `${Math.round(protein.value)} g` : '–', sub: `doel ${tg.protein} g${days(protein?.n)}` },
-    { label: 'Slaap per nacht', value: sleep ? fmtSleep(Math.round(sleep.value)) : '–', sub: `doel ${fmtSleep(tg.sleepMin)}${days(sleep?.n)}` },
+    { label: 'Wegingen', value: `${weighIns.length}`, sub: last?.weight != null ? `laatste ${kg(last.weight, 1)} kg` : 'nog geen deze week' },
     {
       label: 'Gewicht (trend)',
       value: trend.length ? `${kg(trend[trend.length - 1].trend, 1)} kg` : '–',
@@ -265,7 +260,6 @@ function ActionCard({ card, report }: { card: CoachCard; report: CoachReport }) 
   const [adjusting, setAdjusting] = useState(false)
   const [delta, setDelta] = useState(card.action?.delta ?? 0)
   const [pending, setPending] = useState(false)
-  const step = card.action?.type === 'kcal' ? 50 : 1
 
   const accept = async (d?: number) => {
     if (pending) return
@@ -283,9 +277,9 @@ function ActionCard({ card, report }: { card: CoachCard; report: CoachReport }) 
       </div>
       {adjusting ? (
         <div className="flex items-center gap-2">
-          <button aria-label="Minder" onClick={() => setDelta(delta - step)} className="press h-11 w-11 rounded-[14px] bg-s2 text-[18px]">−</button>
-          <span className="num flex-1 text-center font-cond text-[24px] font-bold">{delta > 0 ? '+' : ''}{delta}{card.action?.type === 'kcal' ? ' kcal' : ' sets'}</span>
-          <button aria-label="Meer" onClick={() => setDelta(delta + step)} className="press h-11 w-11 rounded-[14px] bg-s2 text-[18px]">+</button>
+          <button aria-label="Minder" onClick={() => setDelta(delta - 1)} className="press h-11 w-11 rounded-[14px] bg-s2 text-[18px]">−</button>
+          <span className="num flex-1 text-center font-cond text-[24px] font-bold">{delta > 0 ? '+' : ''}{delta} sets</span>
+          <button aria-label="Meer" onClick={() => setDelta(delta + 1)} className="press h-11 w-11 rounded-[14px] bg-s2 text-[18px]">+</button>
           <button onClick={() => accept(delta)} disabled={pending} className="press h-11 rounded-[14px] bg-accent px-4 text-[15px] font-semibold text-bg">Opslaan</button>
         </div>
       ) : (

@@ -1,6 +1,6 @@
 import type { CoachCard, DailyLog, Exercise, ProgramDay, Targets, Workout, WorkoutSet } from '../lib/types'
 import { addDays, daysBetween } from '../lib/dates'
-import { kg, int, sleep as fmtSleep } from '../lib/format'
+import { kg } from '../lib/format'
 import { weightTrend, weeklyRate } from './trend'
 import { setsPerMuscle, ZONE_EXEMPT } from './volume'
 import { e1rm } from './progression'
@@ -15,79 +15,58 @@ export interface CoachInput {
   days: ProgramDay[]
 }
 
+/** About 150 kcal a day shifts the weekly gain by roughly 0,1 kg. Advice only: food is not logged. */
 const KCAL_STEP = 150
 
-/** What the rules need before they give advice: weigh-ins in 14 days, kcal days in 7, workouts in 7 (for volume). */
-export const NEEDS = { weighIns14: 3, food7: 4, workouts7: 3 }
+/** What the rules need before they give advice: weigh-ins in 14 days, workouts in 7 (for volume). */
+export const NEEDS = { weighIns14: 3, workouts7: 3 }
 
 /** Deterministic weekly check-in. The LLM only rewrites `why`; numbers and actions come from here. */
 export function coachCards(input: CoachInput): CoachCard[] {
   const { today, logs, targets } = input
   const cards: CoachCard[] = []
   const live = logs.filter((l) => !l.deleted)
-  const last = (n: number) => live.filter((l) => daysBetween(l.date, today) >= 0 && daysBetween(l.date, today) < n)
+  const weighIns14 = live.filter((l) => l.weight != null && daysBetween(l.date, today) >= 0 && daysBetween(l.date, today) < 14).length
 
-  const weighIns14 = last(14).filter((l) => l.weight != null).length
-  const food7 = last(7).filter((l) => l.kcal != null)
-
-  // 1. Enough data?
-  if (weighIns14 < NEEDS.weighIns14 || food7.length < NEEDS.food7) {
+  // 1. Enough weigh-ins for a trend?
+  if (weighIns14 < NEEDS.weighIns14) {
     cards.push({
       id: 'data',
       kind: 'data',
-      title: 'Te weinig data voor kcal-advies',
-      why: 'Weeg je 3× per 14 dagen en log 4 dagen per week je kcal.',
-      evidence: [`${weighIns14} wegingen / 14d`, `${food7.length}/7 dagen kcal`],
-      rule: 'min. 3 wegingen + 4 voedingsdagen',
+      title: 'Te weinig wegingen voor eetadvies',
+      why: `Weeg je minstens ${NEEDS.weighIns14}× per 14 dagen.`,
+      evidence: [`${weighIns14} wegingen / 14d`],
+      rule: `min. ${NEEDS.weighIns14} wegingen in 14 dagen`,
       confidence: 'laag',
       status: 'open',
     })
   } else {
-    // 2. Calories vs weight trend
+    // 2. Eating, judged by the weight trend alone
     const trend = weightTrend(live.filter((l) => daysBetween(l.date, today) >= 0))
     const rate = weeklyRate(trend)
     if (rate) {
-      const avgKcal = Math.round(food7.reduce((s, l) => s + (l.kcal ?? 0), 0) / food7.length)
-      const conf = !rate.provisional && food7.length >= 6 && weighIns14 >= 6 ? 'hoog' : 'middel'
-      const evidence = [
-        `trend ${rate.perWeek >= 0 ? '+' : '−'}${kg(Math.abs(rate.perWeek))} kg/wk`,
-        `gem. ${int(avgKcal)} kcal`,
-        `${food7.length}/7 dagen gelogd`,
-      ]
-      if (rate.perWeek < targets.weeklyGainMin) {
+      const { perWeek } = rate
+      const conf = !rate.provisional && weighIns14 >= 6 ? 'hoog' : 'middel'
+      const evidence = [`trend ${perWeek >= 0 ? '+' : '−'}${kg(Math.abs(perWeek))} kg/wk`, `${weighIns14} wegingen / 14d`]
+      const zone = `${kg(targets.weeklyGainMin)}–${kg(targets.weeklyGainMax)} kg`
+      if (perWeek < targets.weeklyGainMin) {
+        const pace = perWeek > 0.02 ? `Je komt ${kg(perWeek)} kg per week bij` : perWeek < -0.02 ? `Je valt ${kg(-perWeek)} kg per week af` : 'Je gewicht staat stil'
         cards.push({
-          id: 'kcal',
-          kind: 'kcal',
-          title: `Kcal naar ${int(targets.kcal + KCAL_STEP)}`,
-          why: `Je komt ${kg(rate.perWeek)} kg per week bij, doel is ${kg(targets.weeklyGainMin)}–${kg(targets.weeklyGainMax)} kg.`,
-          evidence,
-          rule: `tempo < ${kg(targets.weeklyGainMin)} kg/wk → +${KCAL_STEP} kcal`,
-          confidence: conf,
-          action: { type: 'kcal', delta: KCAL_STEP },
-          status: 'open',
+          id: 'food', kind: 'food', title: 'Eet wat meer',
+          why: `${pace}, doel is +${zone} per week. Eet elke dag ± ${KCAL_STEP} kcal extra.`,
+          evidence, rule: `tempo < ${kg(targets.weeklyGainMin)} kg/wk → ± ${KCAL_STEP} kcal per dag meer`, confidence: conf, status: 'open',
         })
-      } else if (rate.perWeek > targets.weeklyGainMax + 0.1) {
+      } else if (perWeek > targets.weeklyGainMax + 0.1) {
         cards.push({
-          id: 'kcal',
-          kind: 'kcal',
-          title: `Kcal naar ${int(targets.kcal - KCAL_STEP)}`,
-          why: `Je komt ${kg(rate.perWeek)} kg per week bij, sneller dan je doel.`,
-          evidence,
-          rule: `tempo > ${kg(targets.weeklyGainMax + 0.1)} kg/wk → −${KCAL_STEP} kcal`,
-          confidence: conf,
-          action: { type: 'kcal', delta: -KCAL_STEP },
-          status: 'open',
+          id: 'food', kind: 'food', title: 'Eet iets minder',
+          why: `Je komt ${kg(perWeek)} kg per week bij, sneller dan je doel van ${zone}. Eet elke dag ± ${KCAL_STEP} kcal minder.`,
+          evidence, rule: `tempo > ${kg(targets.weeklyGainMax + 0.1)} kg/wk → ± ${KCAL_STEP} kcal per dag minder`, confidence: conf, status: 'open',
         })
       } else {
         cards.push({
-          id: 'kcal',
-          kind: 'kcal',
-          title: `Kcal ${int(targets.kcal)} houden`,
-          why: `${kg(rate.perWeek)} kg per week, binnen je doelzone.`,
-          evidence,
-          rule: `tempo binnen ${kg(targets.weeklyGainMin)}–${kg(targets.weeklyGainMax)} → houden`,
-          confidence: conf,
-          status: 'open',
+          id: 'food', kind: 'food', title: 'Eten zit goed',
+          why: `Je komt ${kg(perWeek)} kg per week bij, ${perWeek > targets.weeklyGainMax ? 'net boven' : 'binnen'} je doel van ${zone}. Eet zoals nu.`,
+          evidence, rule: `tempo binnen ${zone} → zo houden`, confidence: conf, status: 'open',
         })
       }
     }
@@ -162,42 +141,6 @@ export function coachCards(input: CoachInput): CoachCard[] {
         rule: 'volume < 10 sets → +2 op een isolatie-oefening',
         confidence: 'middel',
         action: { type: 'addSets', dayId: found.dayId, exerciseId: found.exerciseId, delta: 2 },
-        status: 'open',
-      })
-    }
-  }
-
-  // 5. Protein
-  const prot = last(7).filter((l) => l.protein != null)
-  if (prot.length >= 4) {
-    const avg = Math.round(prot.reduce((s, l) => s + (l.protein ?? 0), 0) / prot.length)
-    if (avg < targets.protein - 15) {
-      cards.push({
-        id: 'protein',
-        kind: 'protein',
-        title: `Eiwit gemiddeld ${avg} van ${targets.protein} g`,
-        why: 'Laatste 7 dagen. Eén eiwitrijke snack of shake per dag dicht het gat.',
-        evidence: [`gem. ${avg} g`, `${prot.length} dagen`],
-        rule: `gemiddelde < doel − 15 g → signaleren`,
-        confidence: 'hoog',
-        status: 'open',
-      })
-    }
-  }
-
-  // 6. Sleep
-  const sl = last(7).filter((l) => l.sleep_min != null)
-  if (sl.length >= 4) {
-    const avg = Math.round(sl.reduce((s, l) => s + (l.sleep_min ?? 0), 0) / sl.length)
-    if (avg < targets.sleepMin - 60) {
-      cards.push({
-        id: 'sleep',
-        kind: 'sleep',
-        title: `Slaap gemiddeld ${fmtSleep(avg)}`,
-        why: `Laatste 7 dagen, ruim onder je doel van ${fmtSleep(targets.sleepMin)}.`,
-        evidence: [`gem. ${fmtSleep(avg)}`, `doel ${fmtSleep(targets.sleepMin)}`],
-        rule: 'gemiddelde < doel − 1u → signaleren',
-        confidence: 'hoog',
         status: 'open',
       })
     }

@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: 'Plaatijzer',
         short_name: 'Plaatijzer',
-        description: 'Workout- en daglog voor de homegym',
+        description: 'Workout- en gewichtslog voor de homegym',
         lang: 'nl',
         theme_color: '#0A0A0B',
         background_color: '#0A0A0B',

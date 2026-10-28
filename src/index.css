@@ -14,9 +14,7 @@
   --color-accent: #FF5A1F;
   --color-accent-hi: #FF7A47;
   --color-pr: #6FE7FF;
-  --color-kcal: #C9B48A;
-  --color-protein: #D98C8C;
-  --color-sleep: #7E95C9;
+  --color-error: #D98C8C;
 
   --font-sans: "Barlow", system-ui, sans-serif;
   --font-cond: "Barlow Condensed", "Barlow", system-ui, sans-serif;

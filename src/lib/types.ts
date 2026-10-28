@@ -64,13 +64,11 @@ export interface WorkoutSet extends SyncRow {
   done_at: string | null
 }
 
+/** One row per day. Only the weigh-in is used (the table still has old kcal/eiwit/slaap columns, unused). */
 export interface DailyLog extends SyncRow {
   /** YYYY-MM-DD */
   date: string
   weight: number | null
-  kcal: number | null
-  protein: number | null
-  sleep_min: number | null
 }
 
 export interface Inventory {
@@ -85,9 +83,6 @@ export interface Inventory {
 }
 
 export interface Targets {
-  kcal: number
-  protein: number
-  sleepMin: number
   weeklyGainMin: number
   weeklyGainMax: number
   goalWeight: number
@@ -116,14 +111,14 @@ export type Confidence = 'hoog' | 'middel' | 'laag'
 
 export interface CoachCard {
   id: string
-  kind: 'kcal' | 'protein' | 'volume' | 'stall' | 'sleep' | 'data'
+  kind: 'food' | 'volume' | 'stall' | 'data'
   title: string
   why: string
   evidence: string[]
   rule: string
   confidence: Confidence
   /** A change that can be applied with one tap, if any. */
-  action?: { type: 'kcal'; delta: number } | { type: 'addSets'; dayId: string; exerciseId: string; delta: number }
+  action?: { type: 'addSets'; dayId: string; exerciseId: string; delta: number }
   status: 'open' | 'accepted' | 'dismissed'
 }
 

@@ -7,8 +7,9 @@ import { setsPerMuscle } from './volume'
 import { coachCards } from './coach'
 import { weekPlan } from './week'
 import { remoteWins } from '../data/merge'
-import { buildDays, streaks } from './consistency'
+import { buildDays, weekStreaks } from './consistency'
 import { DEFAULT_SETTINGS, SEED_DAYS } from '../data/seed'
+import { addDays } from '../lib/dates'
 
 const inv: Inventory = {
   barKg: 20,
@@ -120,6 +121,10 @@ describe('weight trend', () => {
   it('needs a week of data', () => {
     expect(weeklyRate(weightTrend([{ date: '2026-10-01', weight: 70 }, { date: '2026-10-03', weight: 70.2 }]))).toBeNull()
   })
+  it('is rounded to what the screens show, so 0,247 judges as 0,25', () => {
+    const rate = weeklyRate([{ date: '2026-10-01', raw: 70, trend: 70 }, { date: '2026-10-15', raw: 70.5, trend: 70.494 }])
+    expect(rate?.perWeek).toBe(0.25)
+  })
 })
 
 describe('volume', () => {
@@ -179,72 +184,72 @@ describe('coach', () => {
   const base = {
     today: '2026-11-01', targets: DEFAULT_SETTINGS.targets, workouts: [], sets: [], exercises: [], days: [],
   }
-  it('asks for more data when logs are thin', () => {
-    const cards = coachCards({ ...base, logs: [] })
+  // 21 daily weigh-ins ending on `today`, gaining `perWeek` kg per week
+  const weighIns = (perWeek: number) => Array.from({ length: 21 }, (_, i) => ({
+    id: String(i), updated_at: '', deleted: false, date: `2026-10-${String(11 + i).padStart(2, '0')}`, weight: 64 + (perWeek / 7) * i,
+  }))
+  const food = (perWeek: number) => coachCards({ ...base, logs: weighIns(perWeek) }).find((c) => c.kind === 'food')
+
+  it('asks for more weigh-ins when there are too few', () => {
+    const cards = coachCards({ ...base, logs: weighIns(0).slice(-2) })
     expect(cards[0].kind).toBe('data')
+    expect(cards.some((c) => c.kind === 'food')).toBe(false)
   })
-  it('suggests +150 kcal when the trend is flat', () => {
-    const logs = Array.from({ length: 21 }, (_, i) => ({
-      id: String(i), updated_at: '', deleted: false,
-      date: `2026-10-${String(11 + i).padStart(2, '0')}`, weight: 64, kcal: 2400, protein: 130, sleep_min: 480,
-    }))
-    const cards = coachCards({ ...base, logs })
-    const kcal = cards.find((c) => c.kind === 'kcal')
-    expect(kcal?.action).toEqual({ type: 'kcal', delta: 150 })
-    expect(kcal?.confidence).toBe('hoog')
+  it('flat weight → eat ± 150 kcal more, as advice without an action', () => {
+    const card = food(0)
+    expect(card?.title).toBe('Eet wat meer')
+    expect(card?.why).toMatch(/^Je gewicht staat stil.*150 kcal extra/)
+    expect(card?.action).toBeUndefined()
+    expect(card?.confidence).toBe('hoog')
   })
-  it('holds when inside the zone', () => {
-    const logs = Array.from({ length: 21 }, (_, i) => ({
-      id: String(i), updated_at: '', deleted: false,
-      date: `2026-10-${String(11 + i).padStart(2, '0')}`, weight: 64 + (0.4 / 7) * i, kcal: 2600, protein: 130, sleep_min: 480,
-    }))
-    const kcal = coachCards({ ...base, logs }).find((c) => c.kind === 'kcal')
-    expect(kcal?.action).toBeUndefined()
+  it('losing weight reads as losing, not as a negative gain', () => {
+    expect(food(-0.6)?.why).toMatch(/^Je valt [\d,]+ kg per week af/)
+  })
+  it('inside the zone → keep eating like now', () => {
+    expect(food(0.4)?.title).toBe('Eten zit goed')
+  })
+  it('well above the zone → eat a bit less', () => {
+    expect(food(1.4)?.title).toBe('Eet iets minder')
   })
 })
 
 describe('consistency', () => {
-  const targets = { ...DEFAULT_SETTINGS.targets, kcal: 2600, protein: 130, sleepMin: 480 }
-  const log = (date: string, v: Partial<{ weight: number; kcal: number; protein: number; sleep_min: number }>) => ({
-    id: date, updated_at: '', deleted: false, date, weight: null, kcal: null, protein: null, sleep_min: null, ...v,
-  })
-  // ma 26 t/m zo 1 nov 2026; gym ma/wo/vr
-  const input = (logs: ReturnType<typeof log>[], workouts: { id: string; date: string; name: string; sets: number }[] = []) =>
-    ({ logs, workouts, targets, gymDays: [1, 3, 5] })
+  const log = (date: string, weight: number | null = 70) => ({ id: date, updated_at: '', deleted: false, date, weight })
+  const w = (date: string, sets = 15) => ({ id: `w-${date}`, date, name: 'Upper', sets })
+  // ma 26 okt t/m zo 1 nov 2026; gym ma/wo/vr
+  const input = (logs: ReturnType<typeof log>[], workouts: ReturnType<typeof w>[] = []) => ({ logs, workouts, gymDays: [1, 3, 5] })
 
-  it('an empty day is level 0 and not part of a streak', () => {
+  it('an empty week is level 0 everywhere and no streak', () => {
     const days = buildDays('2026-10-26', '2026-11-01', input([]))
     expect(days).toHaveLength(7)
-    expect(days.every((d) => d.level.alles === 0)).toBe(true)
-    expect(streaks(days, '2026-11-01')).toEqual({ current: 0, longest: 0 })
+    expect(days.every((d) => d.level.training === 0 && d.level.wegen === 0)).toBe(true)
+    expect(weekStreaks(days, '2026-11-01', 3)).toEqual({ current: 0, longest: 0 })
   })
-  it('a gym day with training and every target reached is level 4', () => {
-    const days = buildDays('2026-10-26', '2026-10-26', input(
-      [log('2026-10-26', { kcal: 2600, protein: 130, sleep_min: 480 })],
-      [{ id: 'w', date: '2026-10-26', name: 'Upper', sets: 18 }],
+  it('training colour follows done work sets; a weigh-in is there or not', () => {
+    const days = buildDays('2026-10-26', '2026-10-30', input(
+      [log('2026-10-26'), log('2026-10-27', null)],
+      [w('2026-10-26', 5), w('2026-10-27', 10), w('2026-10-28', 15), w('2026-10-29', 18)],
     ))
-    expect(days[0]).toMatchObject({ hits: 4, goals: 4 })
-    expect(days[0].level).toEqual({ alles: 4, training: 4, kcal: 4, eiwit: 4, slaap: 4 })
+    expect(days.map((d) => d.level.training)).toEqual([1, 2, 3, 4, 0])
+    expect(days.map((d) => d.level.wegen)).toEqual([4, 0, 0, 0, 0])
+    expect(days.map((d) => d.gymDay)).toEqual([true, false, true, false, true])
   })
-  it('a rest day only counts food and sleep; a missed gym day counts against you', () => {
-    const rest = buildDays('2026-10-27', '2026-10-27', input([log('2026-10-27', { kcal: 2600, protein: 130, sleep_min: 480 })]))[0]
-    expect(rest).toMatchObject({ hits: 3, goals: 3 })
-    expect(rest.level.alles).toBe(4)
-    const gym = buildDays('2026-10-28', '2026-10-28', input([log('2026-10-28', { kcal: 2600, protein: 130, sleep_min: 480 })]))[0]
-    expect(gym).toMatchObject({ hits: 3, goals: 4 })
-    expect(gym.level.alles).toBe(3)
+  it('two workouts on one day add up', () => {
+    const [d] = buildDays('2026-10-26', '2026-10-26', input([], [w('2026-10-26', 8), { ...w('2026-10-26', 8), id: 'w2' }]))
+    expect(d.workouts).toHaveLength(2)
+    expect(d.level.training).toBe(3)
   })
-  it('levels follow the share of the target, 95% counts as reached', () => {
-    const d = buildDays('2026-10-27', '2026-10-27', input([log('2026-10-27', { kcal: 2470, protein: 100, sleep_min: 300 })]))[0]
-    expect(d.level.kcal).toBe(4)
-    expect(d.level.eiwit).toBe(2)
-    expect(d.level.slaap).toBe(1)
-  })
-  it('the current streak may end yesterday while today is still empty', () => {
-    const days = buildDays('2026-10-26', '2026-10-30', input([
-      log('2026-10-26', { weight: 70 }), log('2026-10-28', { kcal: 1000 }), log('2026-10-29', { protein: 50 }),
-    ]))
-    expect(streaks(days, '2026-10-30')).toEqual({ current: 2, longest: 2 })
+  it('week streak counts weeks with enough trainings; the running week does not break it', () => {
+    const days = (workouts: ReturnType<typeof w>[]) => buildDays('2026-10-05', '2026-10-28', input([], workouts))
+    const three = (mon: string) => [w(mon), w(addDays(mon, 2)), w(addDays(mon, 4))]
+    // weeks of 5/10 (1 training), 12/10 (3), 19/10 (3), 26/10 (running, 1 so far)
+    const ok = days([w('2026-10-05'), ...three('2026-10-12'), ...three('2026-10-19'), w('2026-10-26')])
+    expect(weekStreaks(ok, '2026-10-28', 3)).toEqual({ current: 2, longest: 2 })
+    // the running week already has enough → it counts
+    const now = days([...three('2026-10-19'), w('2026-10-26'), w('2026-10-27'), w('2026-10-28')])
+    expect(weekStreaks(now, '2026-10-28', 3)).toEqual({ current: 2, longest: 2 })
+    // a missed week in between resets the current streak
+    const broken = days([...three('2026-10-05'), ...three('2026-10-12'), w('2026-10-26')])
+    expect(weekStreaks(broken, '2026-10-28', 3)).toEqual({ current: 0, longest: 2 })
   })
 })
-

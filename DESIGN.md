@@ -11,7 +11,7 @@ Het gevoel van een homegym 's avonds: zwart staal, gekalkte handen, één oranje
 - Kaarten zonder randen; scheiden met ruimte en dunne lijnen. Geen uitlegteksten die een goede grafiek overbodig maakt.
 - Knoppen: Primary (oranje, 56px) · Secondary (s2, 44px) · Quiet (tekst) · Icon (44² s2). Niets anders.
 - Radii: 8 (chips) · 14 (knoppen, rijen) · 24 (kaarten, sheets, tabbalk).
-- Neutraal over voeding: nooit rode cijfers, wel "nog 640 kcal".
+- Geen voeding of slaap bijhouden (ronde 6). Eetadvies komt uit de gewichtstrend alleen: "eet ± 150 kcal meer per dag".
 - Regels beslissen de cijfers, de AI legt alleen uit.
 
 ## Tokens
@@ -23,14 +23,14 @@ Het gevoel van een homegym 's avonds: zwart staal, gekalkte handen, één oranje
 | ink / ink-2 / ink-3 | #EBEBEB / #B4B4BA / #8E8E94 | tekst, labels (allemaal ≥ 4.5:1 op bg) |
 | accent | #FF5A1F | actie, actieve set, timerring, trendlijn |
 | pr | #6FE7FF | uitsluitend records |
-| kcal / eiwit / slaap | #C9B48A / #D98C8C / #7E95C9 | gedesatureerde datakleuren |
+| error | #D98C8C | foutmeldingen, gedesatureerd |
 
 ## Layout
 - Paginacontainer (`Page`): max 1.200 px, 16 px marge op gsm, 40 px op desktop; kop = titel (Barlow Condensed) + één subregel.
 - Kaarttitel (`CardHead`): echte kop, 16 px semibold, detail rechts in ink-3. Geen eyebrow-labels boven koppen; kleine hoofdletterlabels alleen boven cijfers.
-- Vandaag: gsm = training → daglog → week → bulk → recent. Vanaf 1.280 px twee kolommen (7/12 training, 5/12 daglog + week; daarna bulk | recent). Coach idem: adviezen | weekcijfers.
+- Vandaag: gsm = training → bulk (met weging van vandaag) → week → recent. Vanaf 1.280 px twee kolommen (7/12 training + recent, 5/12 bulk + week). Coach idem: adviezen | weekcijfers.
 - Lege staat zegt wat er komt, waarom, en biedt de actie (bv. "Gewicht loggen"). Kolommen zonder data verdwijnen in plaats van rijen streepjes te tonen.
-- Dagraster (Consistentie): vakjes van 3 px radius, niveau 0 = s3, niveaus 1–4 = datakleur gemengd met s3 (28/48/72/100%). Oranje voor Alles/Training, de datakleuren voor kcal, eiwit, slaap.
+- Dagraster (Consistentie): vakjes van 3 px radius, niveau 0 = s3, niveaus 1–4 = datakleur gemengd met s3 (28/48/72/100%). Oranje voor Training (niveau volgens werksets), wit voor Wegen (gewogen of niet).
 - Testen in 3 datatoestanden (`?demo=leeg`, `?demo=start`, `?demo`) × 402 / 1.024 / 1.440 px, en nergens horizontale scroll.
 
 ## Type

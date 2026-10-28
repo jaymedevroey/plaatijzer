@@ -18,13 +18,10 @@ export async function seedDemo(mode: string | null): Promise<void> {
   for (let i = 27; i >= 0; i--) {
     const date = addDays(t, -i)
     const day = 27 - i
-    const weigh = [0, 2, 3, 5].includes(day % 7)
+    if (![0, 2, 3, 5].includes(day % 7)) continue
     logs.push({
       id: `00000000-0000-4000-9000-0000${date.replaceAll('-', '')}`, date,
-      weight: weigh ? Math.round((70.8 + day * 0.04 + Math.sin(day * 1.7) * 0.35) * 10) / 10 : null,
-      kcal: day % 7 === 6 ? null : 3000 + Math.round(Math.sin(day) * 250 / 10) * 10,
-      protein: 120 + Math.round(Math.cos(day) * 20),
-      sleep_min: 450 + Math.round(Math.sin(day * 0.7) * 40),
+      weight: Math.round((70.8 + day * 0.04 + Math.sin(day * 1.7) * 0.35) * 10) / 10,
       updated_at: new Date().toISOString(), deleted: false,
     })
   }
