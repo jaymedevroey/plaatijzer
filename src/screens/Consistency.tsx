@@ -29,8 +29,10 @@ const ROW_LABEL = ['ma', '', 'wo', '', 'vr', '', '']
 const dayLabel = (d: string) => `${dayShort(d)} ${parseDate(d).getDate()} ${MONTHS[parseDate(d).getMonth()]}`
 
 /** GitHub-style grid: one square per day, coloured by how many day goals you reached. */
-export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, className = '' }: {
+export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, preview = false, className = '' }: {
   today: string
+  /** Showing made-up example data: no logging from here, and a way back to your own data. */
+  preview?: boolean
   logs: DailyLog[]
   workouts: { id: string; date: string; name: string; sets: number }[]
   targets: Targets
@@ -91,6 +93,12 @@ export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, cl
           <p className="num text-[13px] text-ink-3">
             {trainings} {trainings === 1 ? 'training' : 'trainingen'} · reeks {current} {current === 1 ? 'dag' : 'dagen'} · langste {longest}
           </p>
+          {preview && (
+            <p className="text-[13px] text-ink-2">
+              Voorbeeld met verzonnen data, niet jouw gegevens.{' '}
+              <a href={location.pathname + location.hash} className="font-semibold text-ink underline underline-offset-2">Toon mijn raster</a>
+            </p>
+          )}
         </div>
         <div role="group" aria-label="Kleur volgens" className="flex rounded-[10px] bg-s2 p-0.5">
           {METRICS.map((m) => (
@@ -152,7 +160,7 @@ export function ConsistencyCard({ today: t, logs, workouts, targets, gymDays, cl
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1" aria-live="polite">
           <span className="num text-[14px] font-semibold">{dayLabel(shown.date)}</span>
           <span className="num text-[14px] text-ink-2">{summary(shown, gymDays)}</span>
-          <QuietButton onClick={() => openLog(shown.date)} className="-ml-2 text-[14px]">Log deze dag</QuietButton>
+          {!preview && <QuietButton onClick={() => openLog(shown.date)} className="-ml-2 text-[14px]">Log deze dag</QuietButton>}
         </div>
         <div className="flex items-center gap-1.5 text-[12px] text-ink-3" aria-hidden="true">
           minder

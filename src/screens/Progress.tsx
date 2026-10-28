@@ -4,6 +4,7 @@ import { useQuickLog } from '../ui/Shell'
 import { E1rmChart, WeightChart, type E1rmPoint } from '../ui/charts'
 import { useAllSets, useDays, useExercises, useFinishedWorkouts, useLogs, useSettings } from '../data/hooks'
 import { ConsistencyCard } from './Consistency'
+import { sampleYear } from '../data/sample'
 import { weeklyRate, weightTrend } from '../engine/trend'
 import { e1rm } from '../engine/progression'
 import { MUSCLES, setsPerMuscle, ZONE_EXEMPT } from '../engine/volume'
@@ -50,6 +51,13 @@ export function Progress() {
       sets: count.get(w.id) ?? 0,
     }))
   }, [sets, workouts, wById, programDays])
+
+  // "?voorbeeld": the day grid with a made-up year, to see what it looks like filled. Nothing is stored.
+  const preview = new URLSearchParams(location.search).has('voorbeeld')
+  const sample = useMemo(
+    () => (preview ? sampleYear(t, settings.targets, settings.schedule.gymDays, (programDays ?? []).map((d) => d.name)) : null),
+    [preview, t, settings.targets, settings.schedule.gymDays, programDays],
+  )
 
   // Every loaded lift with history: barbell first, then most-trained, then by name (same order on every device).
   const { allLifts, best } = useMemo(() => {
@@ -120,10 +128,11 @@ export function Progress() {
         <ConsistencyCard
           className="lg:col-span-2"
           today={t}
-          logs={logs}
-          workouts={gridWorkouts}
+          logs={sample?.logs ?? logs}
+          workouts={sample?.workouts ?? gridWorkouts}
           targets={tg}
           gymDays={settings.schedule.gymDays}
+          preview={!!sample}
         />
 
         <Card className="flex flex-col gap-4">
