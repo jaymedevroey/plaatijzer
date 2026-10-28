@@ -7,6 +7,7 @@ import { setsPerMuscle } from './volume'
 import { coachCards } from './coach'
 import { weekPlan } from './week'
 import { remoteWins } from '../data/merge'
+import { buildDays, streaks } from './consistency'
 import { DEFAULT_SETTINGS, SEED_DAYS } from '../data/seed'
 
 const inv: Inventory = {
@@ -201,3 +202,49 @@ describe('coach', () => {
     expect(kcal?.action).toBeUndefined()
   })
 })
+
+describe('consistency', () => {
+  const targets = { ...DEFAULT_SETTINGS.targets, kcal: 2600, protein: 130, sleepMin: 480 }
+  const log = (date: string, v: Partial<{ weight: number; kcal: number; protein: number; sleep_min: number }>) => ({
+    id: date, updated_at: '', deleted: false, date, weight: null, kcal: null, protein: null, sleep_min: null, ...v,
+  })
+  // ma 26 t/m zo 1 nov 2026; gym ma/wo/vr
+  const input = (logs: ReturnType<typeof log>[], workouts: { id: string; date: string; name: string; sets: number }[] = []) =>
+    ({ logs, workouts, targets, gymDays: [1, 3, 5] })
+
+  it('an empty day is level 0 and not part of a streak', () => {
+    const days = buildDays('2026-10-26', '2026-11-01', input([]))
+    expect(days).toHaveLength(7)
+    expect(days.every((d) => d.level.alles === 0)).toBe(true)
+    expect(streaks(days, '2026-11-01')).toEqual({ current: 0, longest: 0 })
+  })
+  it('a gym day with training and every target reached is level 4', () => {
+    const days = buildDays('2026-10-26', '2026-10-26', input(
+      [log('2026-10-26', { kcal: 2600, protein: 130, sleep_min: 480 })],
+      [{ id: 'w', date: '2026-10-26', name: 'Upper', sets: 18 }],
+    ))
+    expect(days[0]).toMatchObject({ hits: 4, goals: 4 })
+    expect(days[0].level).toEqual({ alles: 4, training: 4, kcal: 4, eiwit: 4, slaap: 4 })
+  })
+  it('a rest day only counts food and sleep; a missed gym day counts against you', () => {
+    const rest = buildDays('2026-10-27', '2026-10-27', input([log('2026-10-27', { kcal: 2600, protein: 130, sleep_min: 480 })]))[0]
+    expect(rest).toMatchObject({ hits: 3, goals: 3 })
+    expect(rest.level.alles).toBe(4)
+    const gym = buildDays('2026-10-28', '2026-10-28', input([log('2026-10-28', { kcal: 2600, protein: 130, sleep_min: 480 })]))[0]
+    expect(gym).toMatchObject({ hits: 3, goals: 4 })
+    expect(gym.level.alles).toBe(3)
+  })
+  it('levels follow the share of the target, 95% counts as reached', () => {
+    const d = buildDays('2026-10-27', '2026-10-27', input([log('2026-10-27', { kcal: 2470, protein: 100, sleep_min: 300 })]))[0]
+    expect(d.level.kcal).toBe(4)
+    expect(d.level.eiwit).toBe(2)
+    expect(d.level.slaap).toBe(1)
+  })
+  it('the current streak may end yesterday while today is still empty', () => {
+    const days = buildDays('2026-10-26', '2026-10-30', input([
+      log('2026-10-26', { weight: 70 }), log('2026-10-28', { kcal: 1000 }), log('2026-10-29', { protein: 50 }),
+    ]))
+    expect(streaks(days, '2026-10-30')).toEqual({ current: 2, longest: 2 })
+  })
+})
+

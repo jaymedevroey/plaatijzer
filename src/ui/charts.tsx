@@ -5,7 +5,7 @@ import { daysBetween, shortDate } from '../lib/dates'
 import { kg } from '../lib/format'
 
 /** Real pixel width of the chart container, so 12px text stays 12px on a phone. */
-function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+export function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(340)
   useLayoutEffect(() => {

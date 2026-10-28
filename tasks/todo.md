@@ -140,3 +140,26 @@ Principe: hiërarchie in plaats van schrappen. Eén dominant blok per scherm, de
 - [x] Git-geschiedenis vervangen door één schone commit (author = GitHub noreply-adres)
 - Live gecontroleerd (pc, Chrome): Vandaag toont het eigen schema, de doelen en het weekschema uit het account; geen consolefouten. Coach-functie: 200 met AI-uitleg (claude-haiku-5-5) via de owner-tabel. Advisors: alleen de bewuste INFO-meldingen (tabellen zonder policies) en leaked password protection (Pro).
 - Open: oude GitHub Actions-runs verwijzen nog naar de oude commits; verwijderen kan alleen de eigenaar zelf. Weekschema heeft nog geen bewerkscherm.
+
+# Ronde 5 — dagraster op Progressie (28 okt 2026)
+Vraag: "op pc progress zien aan de hand van vakjes elke dag die gekleurd worden zoals op GitHub / Claude Code".
+
+## Aannames
+- Plaats: bovenaan Progressie, volle breedte; op pc het laatste jaar (53 weken), op gsm zoveel weken als past.
+- Weken beginnen op maandag (rijen ma–zo). Toekomstige dagen worden niet getekend.
+- Kleur = hoeveel dagdoelen je haalde: kcal ≥ 95%, eiwit ≥ 95%, slaap ≥ 95% van je doel, en op een gymdag (of als je trainde) een training. Schakelaar voor één meting: Training (aantal werksets), Kcal, Eiwit, Slaap.
+- Oranje schaal voor Alles/Training (zoals de trendlijn op Progressie); de bestaande datakleuren voor kcal, eiwit en slaap.
+- Bovenaan: trainingen in de periode en je reeks (opeenvolgende dagen met iets gelogd of getraind).
+- Hover of tik op een vakje toont die dag; vanuit daar kun je die dag loggen.
+
+## Stappen
+- [x] 1. Pure functies voor dagscore, niveaus en reeksen + tests
+  Verificatie: vitest groen, randgevallen (geen data, rustdag, gymdag zonder training)
+- [x] 2. Kaart met raster, maandlabels, legende, schakelaar, dagdetail, toetsenbord (pijltjes)
+  Verificatie: screenshots leeg/vol op 402, 1.024 en 1.440 px; geen horizontale scroll
+- [x] 3. Deploy + live check
+
+### Review ronde 5
+- Nieuw: kaart "Consistentie" bovenaan Progressie. Eén vakje per dag (ma–zo per kolom), op pc het hele jaar, op gsm zoveel weken als past. Kleur = gehaalde dagdoelen, of per meting (Training = werksets, Kcal/Eiwit/Slaap = % van je doel). Reeks en langste reeks, legende minder–meer, hover/tik toont de dag met "Log deze dag", pijltjestoetsen bewegen door de dagen.
+- Getest: 5 nieuwe unit tests (lege dag, gymdag vs rustdag, 95%-grens, reeks die gisteren eindigt) → 33 groen; screenshots leeg/vol op gsm en pc; metingwissel en toetsenbord met Playwright; geen horizontale scroll op 5 schermen × 3 toestanden × 4 breedtes; smoke-tests groen.
+

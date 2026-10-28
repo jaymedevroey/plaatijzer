@@ -30,6 +30,7 @@ Het gevoel van een homegym 's avonds: zwart staal, gekalkte handen, één oranje
 - Kaarttitel (`CardHead`): echte kop, 16 px semibold, detail rechts in ink-3. Geen eyebrow-labels boven koppen; kleine hoofdletterlabels alleen boven cijfers.
 - Vandaag: gsm = training → daglog → week → bulk → recent. Vanaf 1.280 px twee kolommen (7/12 training, 5/12 daglog + week; daarna bulk | recent). Coach idem: adviezen | weekcijfers.
 - Lege staat zegt wat er komt, waarom, en biedt de actie (bv. "Gewicht loggen"). Kolommen zonder data verdwijnen in plaats van rijen streepjes te tonen.
+- Dagraster (Consistentie): vakjes van 3 px radius, niveau 0 = s2, niveaus 1–4 = datakleur gemengd met s2 (28/48/72/100%). Oranje voor Alles/Training, de datakleuren voor kcal, eiwit, slaap.
 - Testen in 3 datatoestanden (`?demo=leeg`, `?demo=start`, `?demo`) × 402 / 1.024 / 1.440 px, en nergens horizontale scroll.
 
 ## Type

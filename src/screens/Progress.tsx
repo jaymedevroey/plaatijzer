@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Card, CardHead, Page, SecondaryButton } from '../ui/kit'
 import { useQuickLog } from '../ui/Shell'
 import { E1rmChart, WeightChart, type E1rmPoint } from '../ui/charts'
-import { useAllSets, useExercises, useFinishedWorkouts, useLogs, useSettings } from '../data/hooks'
+import { useAllSets, useDays, useExercises, useFinishedWorkouts, useLogs, useSettings } from '../data/hooks'
+import { ConsistencyCard } from './Consistency'
 import { weeklyRate, weightTrend } from '../engine/trend'
 import { e1rm } from '../engine/progression'
 import { MUSCLES, setsPerMuscle, ZONE_EXEMPT } from '../engine/volume'
@@ -23,6 +24,7 @@ export function Progress() {
   const sets = useAllSets()
   const workouts = useFinishedWorkouts()
   const exercises = useExercises()
+  const programDays = useDays()
   const openLog = useQuickLog()
   const [range, setRange] = useState<(typeof RANGES)[number]['key']>('1M')
   const [exId, setExId] = useState<string | null>(null)
@@ -36,6 +38,18 @@ export function Progress() {
   const current = trend[trend.length - 1]?.trend
 
   const wById = useMemo(() => new Map((workouts ?? []).map((w) => [w.id, w])), [workouts])
+
+  // Finished workouts for the day grid: local date, program-day name and done work sets.
+  const gridWorkouts = useMemo(() => {
+    const count = new Map<string, number>()
+    for (const s of sets ?? []) if (s.done && s.kind === 'work' && wById.has(s.workout_id)) count.set(s.workout_id, (count.get(s.workout_id) ?? 0) + 1)
+    return (workouts ?? []).map((w) => ({
+      id: w.id,
+      date: isoDate(new Date(w.started_at)),
+      name: programDays?.find((d) => d.id === w.day_id)?.name ?? 'Training',
+      sets: count.get(w.id) ?? 0,
+    }))
+  }, [sets, workouts, wById, programDays])
 
   // Every loaded lift with history: barbell first, then most-trained, then by name (same order on every device).
   const { allLifts, best } = useMemo(() => {
@@ -103,6 +117,15 @@ export function Progress() {
   return (
     <Page title="Progressie" sub={`${workouts.length} ${workouts.length === 1 ? 'training' : 'trainingen'} · ${weighIns} ${weighIns === 1 ? 'weging' : 'wegingen'}`}>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start lg:gap-5">
+        <ConsistencyCard
+          className="lg:col-span-2"
+          today={t}
+          logs={logs}
+          workouts={gridWorkouts}
+          targets={tg}
+          gymDays={settings.schedule.gymDays}
+        />
+
         <Card className="flex flex-col gap-4">
           <div className="flex min-h-10 items-center justify-between gap-3">
             <h2 className="text-[16px] font-semibold">Gewicht</h2>
