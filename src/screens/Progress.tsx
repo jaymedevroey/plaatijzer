@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Card, CardHead, Page, SecondaryButton } from '../ui/kit'
 import { useQuickLog } from '../ui/Shell'
-import { E1rmChart, WeightChart, type E1rmPoint } from '../ui/charts'
+import { E1rmChart, TrendChart, type E1rmPoint } from '../ui/charts'
 import { useAllSets, useDays, useExercises, useFinishedWorkouts, useLogs, useSettings } from '../data/hooks'
 import { ConsistencyCard } from './Consistency'
 import { sampleYear } from '../data/sample'
 import { weeklyRate, weightTrend } from '../engine/trend'
 import { e1rm } from '../engine/progression'
 import { MUSCLES, setsPerMuscle, ZONE_EXEMPT } from '../engine/volume'
-import { addDays, daysBetween, isoDate, today } from '../lib/dates'
+import { addDays, daysBetween, isoDate, shortDate, today } from '../lib/dates'
 import { kg, signed } from '../lib/format'
 import type { Muscle } from '../lib/types'
 
@@ -28,15 +28,20 @@ export function Progress() {
   const programDays = useDays()
   const openLog = useQuickLog()
   const [range, setRange] = useState<(typeof RANGES)[number]['key']>('1M')
+  const [metric, setMetric] = useState<'gewicht' | 'vet'>('gewicht')
   const [exId, setExId] = useState<string | null>(null)
 
   const t = today()
   const tg = settings.targets
   const trend = useMemo(() => weightTrend(logs ?? []), [logs])
+  // Body fat gets the same smoothing as weight: one scale reading says little, the trend does.
+  const fatTrend = useMemo(() => weightTrend((logs ?? []).map((l) => ({ date: l.date, weight: l.body_fat ?? null }))), [logs])
   const rate = useMemo(() => weeklyRate(trend), [trend])
   const days = RANGES.find((r) => r.key === range)!.days
-  const shown = trend.filter((p) => daysBetween(p.date, t) <= days)
+  const series = metric === 'gewicht' ? trend : fatTrend
+  const shown = series.filter((p) => daysBetween(p.date, t) <= days)
   const current = trend[trend.length - 1]?.trend
+  const fatNow = fatTrend[fatTrend.length - 1]?.trend
 
   const wById = useMemo(() => new Map((workouts ?? []).map((w) => [w.id, w])), [workouts])
 
@@ -135,9 +140,17 @@ export function Progress() {
         />
 
         <Card className="flex flex-col gap-4">
-          <div className="flex min-h-10 items-center justify-between gap-3">
-            <h2 className="text-[16px] font-semibold">Gewicht</h2>
-            {trend.length >= 2 && (
+          <h2 className="sr-only">Gewicht en vetpercentage</h2>
+          <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div role="group" aria-label="Meting" className="-ml-1 flex">
+              {(['gewicht', 'vet'] as const).map((m) => (
+                <button key={m} aria-pressed={metric === m} onClick={() => setMetric(m)}
+                  className={`press h-10 rounded-[10px] px-1 text-[16px] font-semibold ${m === 'vet' ? 'ml-3' : ''} ${metric === m ? 'text-ink' : 'text-ink-3 hover:text-ink-2'}`}>
+                  {m === 'gewicht' ? 'Gewicht' : 'Vet %'}
+                </button>
+              ))}
+            </div>
+            {series.length >= 2 && (
               <div role="group" aria-label="Periode" className="flex rounded-[10px] bg-s2 p-0.5">
                 {RANGES.map((r) => (
                   <button key={r.key} aria-pressed={range === r.key} onClick={() => setRange(r.key)}
@@ -148,23 +161,52 @@ export function Progress() {
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="num font-cond text-[44px] font-bold leading-none">
-              {kg(current ?? tg.startWeight, 1)}<span className="font-sans text-[16px] font-normal text-ink-3">&nbsp;kg{current == null ? ' · startgewicht' : ''}</span>
-            </span>
-            {rate && (
-              <span className="num text-[14px] text-ink-2">{signed(rate.perWeek)} kg per week · {zone}</span>
-            )}
-          </div>
-          {shown.length >= 2 ? (
-            <WeightChart points={shown} targets={tg} label={`Gewichtstrend ${range}`} />
+          {metric === 'vet' ? (
+            <>
+              {fatNow != null && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="num font-cond text-[44px] font-bold leading-none">
+                    {kg(fatNow, 1)}<span className="font-sans text-[16px] font-normal text-ink-3">&nbsp;% vet</span>
+                  </span>
+                  {shown.length >= 2 && (
+                    <span className="num text-[14px] text-ink-2">{signed(shown[shown.length - 1].trend - shown[0].trend, 1)} % sinds {shortDate(shown[0].date)}</span>
+                  )}
+                </div>
+              )}
+              {shown.length >= 2 ? (
+                <TrendChart points={shown} unit="%" label={`Vetpercentage ${range}`} rawLabel="meting" legend />
+              ) : (
+                <div className="flex flex-col items-start gap-3 py-4">
+                  <p className="text-[14px] text-ink-3">
+                    {fatTrend.length >= 2
+                      ? 'Geen metingen in deze periode.'
+                      : 'Vul je vetpercentage in bij het wegen, bijvoorbeeld van een slimme weegschaal. Na twee metingen zie je hier je trend.'}
+                  </p>
+                  <SecondaryButton onClick={() => openLog()}>Vetpercentage loggen</SecondaryButton>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="flex flex-col items-start gap-3 py-4">
-              <p className="text-[14px] text-ink-3">
-                Na twee wegingen zie je hier je trend tegen je doelzone van +{kg(tg.weeklyGainMin)}–{kg(tg.weeklyGainMax)} kg per week. Weeg je 's ochtends, na het opstaan.
-              </p>
-              <SecondaryButton onClick={() => openLog()}>Gewicht loggen</SecondaryButton>
-            </div>
+            <>
+              <div className="flex flex-col gap-1.5">
+                <span className="num font-cond text-[44px] font-bold leading-none">
+                  {kg(current ?? tg.startWeight, 1)}<span className="font-sans text-[16px] font-normal text-ink-3">&nbsp;kg{current == null ? ' · startgewicht' : ''}</span>
+                </span>
+                {rate && (
+                  <span className="num text-[14px] text-ink-2">{signed(rate.perWeek)} kg per week · {zone}</span>
+                )}
+              </div>
+              {shown.length >= 2 ? (
+                <TrendChart points={shown} unit="kg" corridor={tg} label={`Gewichtstrend ${range}`} legend />
+              ) : (
+                <div className="flex flex-col items-start gap-3 py-4">
+                  <p className="text-[14px] text-ink-3">
+                    Na twee wegingen zie je hier je trend tegen je doelzone van +{kg(tg.weeklyGainMin)}–{kg(tg.weeklyGainMax)} kg per week. Weeg je 's ochtends, na het opstaan.
+                  </p>
+                  <SecondaryButton onClick={() => openLog()}>Gewicht loggen</SecondaryButton>
+                </div>
+              )}
+            </>
           )}
         </Card>
 

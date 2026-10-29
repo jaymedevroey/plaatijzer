@@ -37,9 +37,9 @@ export async function updateSettings(patch: (d: SettingsData) => SettingsData): 
 // ---------- daily log ----------
 export const logIdFor = (date: string) => `00000000-0000-4000-9000-0000${date.replaceAll('-', '')}`
 
-export async function saveDailyLog(date: string, values: Partial<Pick<DailyLog, 'weight'>>): Promise<void> {
+export async function saveDailyLog(date: string, values: Partial<Pick<DailyLog, 'weight' | 'body_fat'>>): Promise<void> {
   const cur = await db.daily_logs.where('date').equals(date).first()
-  const base: DailyLog = cur ?? { id: logIdFor(date), date, weight: null, updated_at: '', deleted: false }
+  const base: DailyLog = cur ?? { id: logIdFor(date), date, weight: null, body_fat: null, updated_at: '', deleted: false }
   await save<DailyLog>('daily_logs', { ...base, ...values, deleted: false })
 }
 

@@ -9,11 +9,13 @@ import { kg } from '../lib/format'
 
 const DATE_FMT = new Intl.DateTimeFormat('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
 
-/** Log your weight for a day (today by default). The ± buttons start from your last weigh-in. */
+/** Log your weight (and, optionally, body fat) for a day, today by default. The ± buttons start from your last values. */
 export function QuickLog({ open, initialDate, onClose }: { open: boolean; initialDate?: string; onClose: () => void }) {
   const [date, setDate] = useState(today())
   const [weight, setWeight] = useState<number | null>(null)
+  const [fat, setFat] = useState<number | null>(null)
   const [last, setLast] = useState<number | null>(null)
+  const [lastFat, setLastFat] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
   const startWeight = useSettings().targets.startWeight
 
@@ -29,8 +31,10 @@ export function QuickLog({ open, initialDate, onClose }: { open: boolean; initia
     void (async () => {
       const cur = await db.daily_logs.where('date').equals(date).first()
       setWeight(cur && !cur.deleted ? cur.weight : null)
-      const before = (await db.daily_logs.orderBy('date').toArray()).filter((l) => !l.deleted && l.date < date && l.weight != null)
-      setLast(before.at(-1)?.weight ?? null)
+      setFat(cur && !cur.deleted ? cur.body_fat ?? null : null)
+      const before = (await db.daily_logs.orderBy('date').toArray()).filter((l) => !l.deleted && l.date < date)
+      setLast(before.filter((l) => l.weight != null).at(-1)?.weight ?? null)
+      setLastFat(before.filter((l) => l.body_fat != null).at(-1)?.body_fat ?? null)
     })()
   }, [open, date])
 
@@ -40,7 +44,7 @@ export function QuickLog({ open, initialDate, onClose }: { open: boolean; initia
   async function onSave() {
     if (saved) return
     setSaved(true)
-    await saveDailyLog(date, { weight })
+    await saveDailyLog(date, { weight, body_fat: fat })
     setTimeout(onClose, 350)
   }
 
@@ -58,7 +62,9 @@ export function QuickLog({ open, initialDate, onClose }: { open: boolean; initia
 
       <Field label="Gewicht" unit="kg" value={weight} onChange={setWeight} placeholder={kg(last ?? startWeight, 1)}
         fmt={(n) => kg(n, 1)} parse={num} step={0.1} start={last ?? startWeight} decimals={1} />
-      <p className="pb-1 text-[13px] text-ink-3">Weeg je 's ochtends na het opstaan, voor je eet of drinkt.</p>
+      <Field label="Vet" unit="%" value={fat} onChange={setFat} placeholder={lastFat != null ? kg(lastFat, 1) : '–'}
+        fmt={(n) => kg(n, 1)} parse={num} step={0.1} start={lastFat ?? 15} decimals={1} />
+      <p className="pb-1 text-[13px] text-ink-3">Weeg je 's ochtends na het opstaan, voor je eet of drinkt. Vetpercentage is optioneel.</p>
 
       <div className="pb-2 pt-4">
         <PrimaryButton onClick={onSave} disabled={saved}>

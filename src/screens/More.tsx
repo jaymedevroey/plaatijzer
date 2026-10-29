@@ -215,9 +215,9 @@ async function exportCsv() {
     if (!wo || wo.deleted) continue
     rows.push([wo.started_at.slice(0, 10), e.get(s.exercise_id)?.name ?? '', s.kind, String(s.weight ?? ''), String(s.reps ?? ''), String(s.rir ?? '')])
   }
-  rows.push([], ['datum', 'gewicht'])
-  for (const l of logs.filter((x) => !x.deleted && x.weight != null).sort((a, b) => a.date.localeCompare(b.date))) {
-    rows.push([l.date, String(l.weight)])
+  rows.push([], ['datum', 'gewicht', 'vet_pct'])
+  for (const l of logs.filter((x) => !x.deleted && (x.weight != null || x.body_fat != null)).sort((a, b) => a.date.localeCompare(b.date))) {
+    rows.push([l.date, String(l.weight ?? ''), String(l.body_fat ?? '')])
   }
   // Neutralise spreadsheet formulas in text cells, then quote where needed.
   const cell = (c: string) => {

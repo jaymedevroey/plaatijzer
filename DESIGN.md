@@ -31,6 +31,7 @@ Het gevoel van een homegym 's avonds: zwart staal, gekalkte handen, één oranje
 - Vandaag: gsm = training → bulk (met weging van vandaag) → week → recent. Vanaf 1.280 px twee kolommen (7/12 training + recent, 5/12 bulk + week). Coach idem: adviezen | weekcijfers.
 - Lege staat zegt wat er komt, waarom, en biedt de actie (bv. "Gewicht loggen"). Kolommen zonder data verdwijnen in plaats van rijen streepjes te tonen.
 - Dagraster (Consistentie): vakjes van 3 px radius, niveau 0 = s3, niveaus 1–4 = datakleur gemengd met s3 (28/48/72/100%). Oranje voor Training (niveau volgens werksets), wit voor Wegen (gewogen of niet).
+- Grafieken: muis erover, vinger slepen of pijltjestoetsen → verticale haarlijn naar de dichtste dag + label naast de lijn (datum, dan de waarde vet, het label grijs). Vier ronde ijkwaarden op de y-as, datums onderaan per dag, week of maand zoals ze passen. Kracht op echte datums. Gewicht en vetpercentage nooit op één as: tabs Gewicht | Vet % in dezelfde kaart. Legende onder de grafiek zodra er meer dan één soort merkteken is.
 - Testen in 3 datatoestanden (`?demo=leeg`, `?demo=start`, `?demo`) × 402 / 1.024 / 1.440 px, en nergens horizontale scroll.
 
 ## Type

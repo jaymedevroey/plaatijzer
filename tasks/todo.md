@@ -194,7 +194,7 @@ Vraag: "geef is wa testdata in dan van een paar weken om te testen".
 - Gevonden bij het nakijken: een extra set krijgt positie x,5, maar sets.position is integer in de database. Zo'n set blokkeert de sync van alle sets. Fix: kolom naar numeric (geen dataverlies).
 
 ## Stappen
-- [ ] 1. sets.position → numeric — wacht op zijn akkoord (schemawijziging op productie werd tegengehouden)
+- [x] 1. sets.position → numeric (na zijn akkoord, 29 okt; 2,5 wordt nu aanvaard, 348 sets ongewijzigd)
   Verificatie: 2,5 wordt aanvaard, aantal sets en posities ongewijzigd
 - [x] 2. Testdata genereren volgens zijn rotatie en gymdagen (dubbele progressie, één vastgelopen oefening, wegingen met traag tempo)
   Verificatie: de echte engine (coach, reeks, volgende doelen) geeft op die data de verwachte kaarten
@@ -207,3 +207,29 @@ Vraag: "geef is wa testdata in dan van een paar weken om te testen".
 - Resultaat (engine lokaal en live gelijk): eetadvies "Eet wat meer", één vastgelopen oefening, één volumeadvies met Accepteren, reeks van 2 weken, volgende training met zwaardere doelen waar de top gehaald is.
 - Let op: Accepteren bij het volumeadvies past zijn echte schema aan. De doelen (kg) zijn gebaseerd op testsets tot de testdata weg is.
 - Weghalen: soft delete van trainingen en sets met prefix 7e57da7a, de wegingen van 28/9 t/m 28/10 en de check-in van deze week.
+
+# Ronde 8 — leesbare grafieken met hover + vetpercentage (29 okt 2026)
+Vraag: "ik vind de charts niet goed leesbaar, ge kunt er niet met u muis overgaan om te zien op hoeveel het toen stond. Voeg ook een vetpercentage optie toe."
+
+## Aannames
+- Hover = muis op pc, vinger slepen op gsm, pijltjes met het toetsenbord. Een verticale lijn springt naar de dichtste dag en een label toont datum + waarde (bij gewicht ook de weging van die dag, bij kracht ook de beste set).
+- Leesbaarder: meer ijklijnen op de y-as, datums onderaan per week of per maand, duidelijkere wegingspunten. Krachtgrafiek op echte datums i.p.v. gelijke stappen.
+- Vetpercentage = optioneel veld bij het loggen (naast gewicht) en een tweede weergave in de gewichtskaart (Gewicht | Vet %), met eigen trendlijn. Nooit op dezelfde as als gewicht. Geen coachregels voor vet.
+- Nieuwe kolom daily_logs.body_fat (numeric, leeg voor bestaande rijen). De app mag pas live nadat de kolom bestaat, anders faalt de sync van wegingen.
+
+## Stappen
+- [x] 1. Kolom body_fat toevoegen (na zijn akkoord)
+  Verificatie: kolom bestaat, bestaande rijen ongewijzigd
+- [x] 2. Grafieken: hover/aanraken/toetsenbord + leesbare assen (gewicht, bulkkaart, kracht)
+  Verificatie: screenshots met hover op pc en aanraking op gsm, geen overloop
+- [x] 3. Vetpercentage: loggen, opslaan, tab in de gewichtskaart, CSV, demo
+  Verificatie: tests + smoke (loggen en terugzien)
+- [x] 4. Testdata: vetpercentages bij de testwegingen
+- [ ] 5. tsc, tests, build, smoke, overloopcheck, deploy, live check
+
+## Review
+- Gewijzigd: charts.tsx herschreven rond één scrub-hook (muis, vinger, toetsenbord) en een gedeelde as-component; schaalhulpjes apart in chartScale.ts met tests. Gewichtsgrafiek heet nu TrendChart en dient ook voor vetpercentage. Krachtgrafiek op datums, records als ruit met legende.
+- Gevonden en opgelost: niceTicks koos de eerste stap ≥ bereik/4, waardoor een bereik van iets meer dan 2 kg maar twee lijnen kreeg (70 en 71). Nu de stap die het dichtst bij het gevraagde aantal komt; test erbij.
+- Database (met zijn akkoord): daily_logs.body_fat toegevoegd, sets.position naar numeric.
+- Getest: tsc, 42 unit tests, build, 11 smoke-checks (o.a. vet loggen en terugzien), hover/tap/toetsenbord-script (tooltip verschijnt, verdwijnt bij weggaan of tikken ernaast, live-tekst voor schermlezers), screenshots leeg/start/vol × gsm/pc, geen horizontale scroll.
+- Aandachtspunt: geen tabelweergave naast de grafieken; elke waarde is wel bereikbaar met het toetsenbord.

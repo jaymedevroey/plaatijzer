@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CardHead, Page, PrimaryButton, QuietButton, Row, SecondaryButton, Sheet } from '../ui/kit'
 import { IconCheck, IconChevron, IconRight, IconUp, IconVolleyball } from '../ui/icons'
-import { WeightChart } from '../ui/charts'
+import { TrendChart } from '../ui/charts'
 import { useQuickLog } from '../ui/Shell'
 import { nextDay, useActiveWorkout, useAllSets, useDays, useExercises, useFinishedWorkouts, useLogs, useSettings } from '../data/hooks'
 import { startWorkout } from '../data/repo'
@@ -336,7 +336,7 @@ function BulkCard({ targets: tg, trend, rate, today: t, weighedToday, onLog, cla
         <span className="text-[14px] text-ink-3">kg doel</span>
       </div>
       {trend.length >= 2 && (
-        <WeightChart points={trend.filter((p) => daysBetween(p.date, t) <= 92)} targets={tg} height={150} color="var(--color-ink)" label="Gewichtstrend laatste 3 maanden" />
+        <TrendChart points={trend.filter((p) => daysBetween(p.date, t) <= 92)} unit="kg" corridor={tg} height={160} color="var(--color-ink)" label="Gewichtstrend laatste 3 maanden" />
       )}
       <div className="relative h-2 rounded-full bg-s3" role="img" aria-label={`${Math.round(pct * 100)}% van ${kg(tg.startWeight, 1)} naar ${kg(tg.goalWeight, 1)} kg`}>
         <span className="absolute inset-y-0 left-0 rounded-full bg-ink" style={{ width: `${Math.max(pct * 100, 1.5)}%` }} />

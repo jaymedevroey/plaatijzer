@@ -22,6 +22,7 @@ export async function seedDemo(mode: string | null): Promise<void> {
     logs.push({
       id: `00000000-0000-4000-9000-0000${date.replaceAll('-', '')}`, date,
       weight: Math.round((70.8 + day * 0.04 + Math.sin(day * 1.7) * 0.35) * 10) / 10,
+      body_fat: Math.round((15.4 - day * 0.01 + Math.cos(day * 1.3) * 0.4) * 10) / 10,
       updated_at: new Date().toISOString(), deleted: false,
     })
   }

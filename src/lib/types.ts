@@ -64,11 +64,13 @@ export interface WorkoutSet extends SyncRow {
   done_at: string | null
 }
 
-/** One row per day. Only the weigh-in is used (the table still has old kcal/eiwit/slaap columns, unused). */
+/** One row per day: the weigh-in and, optionally, body fat (the table still has old kcal/eiwit/slaap columns, unused). */
 export interface DailyLog extends SyncRow {
   /** YYYY-MM-DD */
   date: string
   weight: number | null
+  /** Body fat in %, optional. Missing on rows from before the column existed. */
+  body_fat?: number | null
 }
 
 export interface Inventory {
