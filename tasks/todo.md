@@ -225,7 +225,7 @@ Vraag: "ik vind de charts niet goed leesbaar, ge kunt er niet met u muis overgaa
 - [x] 3. Vetpercentage: loggen, opslaan, tab in de gewichtskaart, CSV, demo
   Verificatie: tests + smoke (loggen en terugzien)
 - [x] 4. Testdata: vetpercentages bij de testwegingen
-- [ ] 5. tsc, tests, build, smoke, overloopcheck, deploy, live check
+- [x] 5. tsc, tests, build, smoke, overloopcheck, deploy, live check (bc48d7a, Actions groen; live: hover op gewicht en vet werkt, gesynchroniseerd, geen consolefouten)
 
 ## Review
 - Gewijzigd: charts.tsx herschreven rond één scrub-hook (muis, vinger, toetsenbord) en een gedeelde as-component; schaalhulpjes apart in chartScale.ts met tests. Gewichtsgrafiek heet nu TrendChart en dient ook voor vetpercentage. Krachtgrafiek op datums, records als ruit met legende.
