@@ -184,3 +184,26 @@ Vraag: "die voeding enzo moogt ge eigenlijk weg halen en slaap ook want da ga ik
 - Gevonden en opgelost: het tempo werd op 2 decimalen getoond maar onafgerond beoordeeld (0,247 → "0,25 kg per week, onder doelzone"). weeklyRate rondt nu af op wat elk scherm toont; test erbij.
 - Getest: tsc, 35 unit tests, build, 10 smoke-checks (o.a. gewicht loggen en bewaren, nergens nog Kcal/Eiwit/Slaap/Daglog), screenshots leeg/start/vol × gsm/pc, geen horizontale scroll op SE/gsm/tablet/pc.
 - Aandachtspunten: de oude kolommen kcal/protein/sleep_min blijven in de database staan (niet gewist). Oude check-ins kunnen nog kcal-kaarten bevatten; ze worden niet meer getoond en "Accepteren" erop doet niets.
+
+# Ronde 7 — testdata om te testen (29 okt 2026)
+Vraag: "geef is wa testdata in dan van een paar weken om te testen".
+
+## Aannames
+- Testdata komt in zijn eigen account (zijn schema, zijn gymdagen), zodat hij de echte app op gsm en pc gevuld ziet. Niets in de code of de publieke repo.
+- Herkenbaar en later weg te halen: trainingen en sets met id-prefix 7e57da7a, wegingen op de dagen van de testperiode (er zijn nog geen echte wegingen). Weghalen = soft delete (deleted = true), geen echte verwijdering.
+- Gevonden bij het nakijken: een extra set krijgt positie x,5, maar sets.position is integer in de database. Zo'n set blokkeert de sync van alle sets. Fix: kolom naar numeric (geen dataverlies).
+
+## Stappen
+- [ ] 1. sets.position → numeric — wacht op zijn akkoord (schemawijziging op productie werd tegengehouden)
+  Verificatie: 2,5 wordt aanvaard, aantal sets en posities ongewijzigd
+- [x] 2. Testdata genereren volgens zijn rotatie en gymdagen (dubbele progressie, één vastgelopen oefening, wegingen met traag tempo)
+  Verificatie: de echte engine (coach, reeks, volgende doelen) geeft op die data de verwachte kaarten
+- [x] 3. Invoegen in één transactie + check-in van deze week opnieuw laten maken
+  Verificatie: aantallen in de database kloppen
+- [x] 4. Live check in Chrome: Vandaag, Progressie, Coach gevuld, geen consolefouten
+
+## Review
+- Ingevoegd: 16 trainingen (4 per programmadag, 2 overgeslagen gymdagen), 316 sets en 22 wegingen over 4,5 week, tot gisteren. Vandaag blijft leeg om zelf te testen. De lege check-in van deze week is soft-deleted; de app maakte hem opnieuw, met AI-uitleg.
+- Resultaat (engine lokaal en live gelijk): eetadvies "Eet wat meer", één vastgelopen oefening, één volumeadvies met Accepteren, reeks van 2 weken, volgende training met zwaardere doelen waar de top gehaald is.
+- Let op: Accepteren bij het volumeadvies past zijn echte schema aan. De doelen (kg) zijn gebaseerd op testsets tot de testdata weg is.
+- Weghalen: soft delete van trainingen en sets met prefix 7e57da7a, de wegingen van 28/9 t/m 28/10 en de check-in van deze week.
